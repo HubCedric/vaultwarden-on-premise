@@ -213,7 +213,7 @@ Voilà, là on est bon ! vous pouvez essayer d'accéder à votre serveur via le 
 pour la sauvegarde de la BDD, il faut encore que je me penche sur le sujet. le mieux serait soit d'avoir un sauvegarde de la BDD sur un support externe, un serveur à part, ou encore avoir un 2e serveur bitwarden délocalisé afin d'avoir une redondance. 
 _En cours de réflexion_
 
-#### mise en place du cron
+#### Mise en place du cron
 
 Pour plusieurs raisons, vous pouvez être amené à redémarrer le serveur, sauf que le conteneur ne redémarre pas automatiquement : il faut donc dire au serveur de démarrer le conteneur avec tous les paramètres à chaque redémarrage. Attention : il faut absolument le faire en root !!
 
@@ -256,10 +256,10 @@ crontab: installing new crontab
 #
 # m h  dom mon dow   command
 
-@reboot docker run -d --name vaultwarden -e ROCKET_TLS='{certs="/ssl/certs.pem",key="/ssl/key.pem"}' -v /ssl/keys/:/ssl/ -v /vw-data/:/data/ -p 443:80 vaultwarden/server:latest
+@reboot docker rm vaultwarden && docker run -d --name vaultwarden -e ROCKET_TLS='{certs="/ssl/certs.pem",key="/ssl/key.pem"}' -v /ssl/keys/:/ssl/ -v /vw-data/:/data/ -p 443:80 vaultwarden/server:latest
 ```
 
-On rentre ici le paramètre ```@reboot``` qui permet de lancer la commande qui suit à chaque redémarrage. La commande qui suit est la même que tout à l'heure pour le lancer manuellement, siplement sans le sudo (car on est en root ;)
+On rentre ici le paramètre ```@reboot``` qui permet de lancer la commande qui suit à chaque redémarrage. La commande qui suit est la même que tout à l'heure pour le lancer manuellement, siplement sans le sudo (car on est en root ;), et on ajoute juste avant la suppression de l'ancien conteneur nommé vaultwarden sinon il redémarrera pas ^^
 Vous pouvez ensuite enregistrer le fichier et redémarrer votre serveur pour tester si le conteneur se lance correctement !
 
 ## renouvellement du certificat
