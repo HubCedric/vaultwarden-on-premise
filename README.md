@@ -5,10 +5,10 @@ je me suis lancé dans la mise en place d'un gestionnaire de mot de passe on pre
 
 état des lieux : actuellement sous bitwarden en mode saas, l'idée est de migrer mes mots de passe sur un serveur en local afin qu'ils ne se trouvent pas sur des serveurs dont je n'ai pas la main.
 
-## mise en place
+## Mise en place
 idée du projet : installation de la solution Vaultwarden (obligatoire pour les architectures ARM tels que Raspberry Pi ou Freebox OS), et utilisation de la solution IPv6 pour accéder au serveur depuis l'extérieur, sans avoir besoin d'ouvrir des ports sur le routeur ce qui pose souvent des problèmes de sécurité. 
 
-### installation sur Raspberry Pi
+### Installation sur Raspberry Pi
 
 matériel nécessaire pour installation sur raspberry pi : 
 * raspberry pi 
@@ -17,7 +17,7 @@ matériel nécessaire pour installation sur raspberry pi :
 * carte SD ou SSD + Shield SSD pour Raspberry Pi
 * un opérateur proposant IPv6 (en l'occurence, Free)
 
-#### installation de l'OS
+#### Installation de l'OS
 
 Tout d'abord, il faudra installer l'OS Raspberry Pi sur votre carte SD ou le SSD. Personnellement je suis parti sur le SSD pour une solution plus pérenne (après une mésaventure avec une carte SD bas de gamme qui m'a laché !). 
 
@@ -31,14 +31,14 @@ Par la suite, on peut brancher notre shield au Raspberry (ou tout simplement ins
 
 Ensuite, pour connaitre l'adresse IP que le Raspberry a pris, je me rend sur l'interface web de mon routeur et je regarde si je vois apparaitre le raspberry dans les appareils connectés, et d'ici on peut voir l'adresse IP du raspberry !
 
-### installation sur Freebox OS
+### Installation sur Freebox OS
 
 matériel nécessaire pour installation sur Freebox : 
 * SSD NVME compatible avec Freebox (en l'occurence je suis parti sur un Crucial P3 de 2To)
 * une Freebox Delta ou Freebox Ultra (l'abonnement Ultra Essentiel fonctionne aussi)
 * un opérateur proposant IPv6 (en l'occurence, Free)
 
-#### installation de l'OS
+#### Installation de l'OS
 
 Avant de vouloir configurer une VM, il faut tout d'abord installer un disque dur dans votre Freebox. Rien de bien compliqué, sur la Freebox Ultra, le slot SSD se trouve en dessous. Je vous conseille d'éteindre votre box avant d'y insérer le SSD, puis la rallumer après. Il me semble qu'il faut simplement formater le disque avant de pouvoir l'utiliser, prenez donc soin de bien sauvegarder toutes les données présents dessus si c'est un SSD réutilisé.
 
@@ -52,7 +52,7 @@ Pour ce qui est de la taille du disque, 15Go suffisent. Avec 2 utilisateurs et ~
 
 Une fois fait, on peut finaliser la configuration et notre VM est prête, on peut donc la démarrer. Ici, pour récupérer l'adresse IP, rien de plus simple, elle est directement indiquée sur la page d'accueil de la VM ;)
 
-#### préparation de l'OS
+#### Préparation de l'OS
 
 On va faire la première configuration du serveur. On va commencer par s'y connecter en SSH :
 
@@ -78,6 +78,8 @@ The system will reboot now!
 ```
 
 Voilà, notre serveur est prêt à accueillir Bitwarden !
+
+**à partir d'ici, l'installation est la même qu'on soit sur Freebox OS ou sur Raspberry**
 
 #### Installation de Docker
 
@@ -211,6 +213,55 @@ Voilà, là on est bon ! vous pouvez essayer d'accéder à votre serveur via le 
 pour la sauvegarde de la BDD, il faut encore que je me penche sur le sujet. le mieux serait soit d'avoir un sauvegarde de la BDD sur un support externe, un serveur à part, ou encore avoir un 2e serveur bitwarden délocalisé afin d'avoir une redondance. 
 _En cours de réflexion_
 
+#### mise en place du cron
+
+Pour plusieurs raisons, vous pouvez être amené à redémarrer le serveur, sauf que le conteneur ne redémarre pas automatiquement : il faut donc dire au serveur de démarrer le conteneur avec tous les paramètres à chaque redémarrage. Attention : il faut absolument le faire en root !!
+
+```
+julabuche@server:~ $ sudo -s
+root@server:/home/cedriccuny# crontab -e
+no crontab for root - using an empty one
+
+Select an editor.  To change later, run 'select-editor'.
+  1. /bin/nano        <---- easiest
+  2. /usr/bin/vim.tiny
+  3. /bin/ed
+
+Choose 1-3 [1]: 1
+crontab: installing new crontab
+```
+
+```
+# Edit this file to introduce tasks to be run by cron.
+#
+# Each task to run has to be defined through a single line
+# indicating with different fields when the task will be run
+# and what command to run for the task
+#
+# To define the time you can provide concrete values for
+# minute (m), hour (h), day of month (dom), month (mon),
+# and day of week (dow) or use '*' in these fields (for 'any').
+#
+# Notice that tasks will be started based on the cron's system
+# daemon's notion of time and timezones.
+#
+# Output of the crontab jobs (including errors) is sent through
+# email to the user the crontab file belongs to (unless redirected).
+#
+# For example, you can run a backup of all your user accounts
+# at 5 a.m every week with:
+# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
+#
+# For more information see the manual pages of crontab(5) and cron(8)
+#
+# m h  dom mon dow   command
+
+@reboot docker run -d --name vaultwarden -e ROCKET_TLS='{certs="/ssl/certs.pem",key="/ssl/key.pem"}' -v /ssl/keys/:/ssl/ -v /vw-data/:/data/ -p 443:80 vaultwarden/server:latest
+```
+
+On rentre ici le paramètre ```@reboot``` qui permet de lancer la commande qui suit à chaque redémarrage. La commande qui suit est la même que tout à l'heure pour le lancer manuellement, siplement sans le sudo (car on est en root ;)
+Vous pouvez ensuite enregistrer le fichier et redémarrer votre serveur pour tester si le conteneur se lance correctement !
+
 ## renouvellement du certificat
 
 voir : https://chatgpt.com/share/1a3f13d0-f890-4f5f-be06-d54b5febbcbd _A rerédiger lorsque ça sera de nouveau le moment du renouvellement_
@@ -223,6 +274,7 @@ commencer par stopper le conteneur vaultwarden déjà en cours d'exécution :
 
 ```
 sudo docker stop vaultwarden
+sudo docker rm vaultwarden
 ```
 
 _remplacer `vaultwarden` par le nom du conteneur docker en question qui est visible en tapant la commande `sudo docker ps`_
@@ -236,7 +288,7 @@ sudo docker pull vaultwarden/server:latest
 une fois fini, vous pouvez relancer le conteneur docker avec la commande suivante : 
 
 ```
-sudo docker run -d -e ROCKET_TLS='{certs="/ssl/certs.pem",key="/ssl/key.pem"}' -v /ssl/keys/:/ssl/ -v /vw-data/:/data/ -p 443:80 vaultwarden/server:latest
+sudo docker run -d --name vaultwarden -e ROCKET_TLS='{certs="/ssl/certs.pem",key="/ssl/key.pem"}' -v /ssl/keys/:/ssl/ -v /vw-data/:/data/ -p 443:80 vaultwarden/server:latest
 ```
 
 et voilà, vaultwarden est à jour !
