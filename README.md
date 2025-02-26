@@ -188,8 +188,8 @@ Voilà, on est bon. On peut voir qu'il a généré 2 fichiers, un ```fullchain.p
 ```
 julabuche@server:~ $ sudo mkdir /ssl && cd /ssl && sudo mkdir keys
 julabuche@server:/ssl $ sudo -s
-root@server:/ssl# sudo cp /etc/letsencrypt/live/cncuny.freeboxos.fr/fullchain.pem /ssl/keys/certs.pem
-root@server:/ssl# sudo cp /etc/letsencrypt/live/cncuny.freeboxos.fr/privkey.pem /ssl/keys/key.pem
+root@server:/ssl# sudo cp /etc/letsencrypt/live/***********/fullchain.pem /ssl/keys/certs.pem
+root@server:/ssl# sudo cp /etc/letsencrypt/live/***********/privkey.pem /ssl/keys/key.pem
 root@server:/ssl# exit
 ```
 
