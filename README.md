@@ -219,7 +219,7 @@ Pour plusieurs raisons, vous pouvez être amené à redémarrer le serveur, sauf
 
 ```
 julabuche@server:~ $ sudo -s
-root@server:/home/cedriccuny# crontab -e
+root@server:/home/julabuche# crontab -e
 no crontab for root - using an empty one
 
 Select an editor.  To change later, run 'select-editor'.
