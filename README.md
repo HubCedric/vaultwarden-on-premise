@@ -52,6 +52,8 @@ Pour ce qui est de la taille du disque, 15Go suffisent. Avec 2 utilisateurs et ~
 
 Une fois fait, on peut finaliser la configuration et notre VM est prête, on peut donc la démarrer. Ici, pour récupérer l'adresse IP, rien de plus simple, elle est directement indiquée sur la page d'accueil de la VM ;)
 
+**à partir d'ici, l'installation est la même qu'on soit sur Freebox OS ou sur Raspberry**
+
 #### Préparation de l'OS
 
 On va faire la première configuration du serveur. On va commencer par s'y connecter en SSH :
@@ -78,8 +80,6 @@ The system will reboot now!
 ```
 
 Voilà, notre serveur est prêt à accueillir Bitwarden !
-
-**à partir d'ici, l'installation est la même qu'on soit sur Freebox OS ou sur Raspberry**
 
 #### Installation de Docker
 
@@ -259,7 +259,7 @@ crontab: installing new crontab
 On rentre ici le paramètre ```@reboot``` qui permet de lancer la commande qui suit à chaque redémarrage. La commande qui suit est la même que tout à l'heure pour le lancer manuellement, siplement sans le sudo (car on est en root ;), et on ajoute juste avant la suppression de l'ancien conteneur nommé vaultwarden sinon il redémarrera pas ^^
 Vous pouvez ensuite enregistrer le fichier et redémarrer votre serveur pour tester si le conteneur se lance correctement !
 
-#### En cas d'indisponibilité du serveur
+## En cas d'indisponibilité du serveur
 
 Jusqu'à présent, je faisais tourner mon serveur sur ma Freebox, cependant dans mon quartier j'ai eu une période avec pas mal de coupures internet qui durent longtemps. Vous en conviendrez que pour l'utilisation d'un gestionnaire de mot de passe, ça pose problème si une coupure de 2 semaines venait à arriver. (spoiler : c'est déjà arrivé !). On peut aussi garder l'éventualité que le serveur plante (c'est aussi déjà arrivé, souvenez vous de ma carte SD...). Du coup, qu'est-ce qu'on fait ?
 
@@ -272,7 +272,7 @@ Au final, je suis parti sur la 2e solution. J'ai l'avantage de pouvoir avoir 2 s
 Prérequis :
 * 2 serveurs communiquant entre eux en réseau (via IPv4 ou IPv6, le plus simple étant IPv6 car pas besoin d'ouverture de ports)
 
-##### Mise en place du tunnel VPN
+### Mise en place du tunnel VPN
 
 On va commencer par mettre en place un tunnel VPN, pour cela on va utiliser WireGuard. Rien à voir avec les solutions du type NordVPN, NordVPN ayant pour objectif principal de faire du chiffre. Ici, c'est totalement gratuit !
 
@@ -364,36 +364,84 @@ Personnellement, j'ai dû installer le paquet ```resolvconf``` sur une des 2 mac
 
 On peut tester le bon fonctionnement en tapant la commande ```ip a``` et voir si une carte réseau nommée ```wg0``` est bien présente. On peut aussi essayer de ping les adresses IP ```10.0.0.1``` et ```10.0.0.2``` pour voir si ça fonctionne !
 
-## renouvellement du certificat
+# Sécurité
+
+Voici un chapitre concernant la sécurité du serveur mis en place. Etant donné qu'on est sur un serveur hébergeant des mots de passe, ce n'est pas un aspect à prendre à la légère. Ici, on va voir comment :
+* Renouveler le certificat HTTPS
+* Mettre à jour le conteneur docker Vaultwarden
+* Mettre à jour OpenSSH
+* Changer le port par défaut de SSH
+
+## Renouvellement du certificat
 
 voir : https://chatgpt.com/share/1a3f13d0-f890-4f5f-be06-d54b5febbcbd _A rerédiger lorsque ça sera de nouveau le moment du renouvellement_
 
-## upgrade nouvelle version vaultwarden
+## Mises à jour de Vaultwarden
 
-il arrive que des nouvelles versions de vaultwarden soient publiées (heureusement), voici la procédure pour les installer.
+Il arrive que des nouvelles versions de vaultwarden soient publiées (heureusement), voici la procédure pour les installer.
 
-commencer par stopper le conteneur vaultwarden déjà en cours d'exécution :
+Commencer par stopper le conteneur vaultwarden déjà en cours d'exécution :
 
 ```
 sudo docker stop vaultwarden
 sudo docker rm vaultwarden
 ```
 
-_remplacer `vaultwarden` par le nom du conteneur docker en question qui est visible en tapant la commande `sudo docker ps`_
+_Remplacer `vaultwarden` par le nom du conteneur docker en question qui est visible en tapant la commande `sudo docker ps`_
 
-installer ensuite la dernière version du conteneur docker :
+Installer ensuite la dernière version du conteneur docker :
 
 ```
 sudo docker pull vaultwarden/server:latest
 ```
 
-une fois fini, vous pouvez relancer le conteneur docker avec la commande suivante : 
+Une fois fini, vous pouvez relancer le conteneur docker avec la commande suivante : 
 
 ```
 sudo docker run -d --name vaultwarden -e ROCKET_TLS='{certs="/ssl/certs.pem",key="/ssl/key.pem"}' -v /ssl/keys/:/ssl/ -v /vw-data/:/data/ -p 443:80 vaultwarden/server:latest
 ```
 
-et voilà, vaultwarden est à jour !
+Et voilà, vaultwarden est à jour !
+
+Bien entendu, il est possible d'en faire un script pour ne rien avoir à faire... Vous savez nous les informaticiens, on est des gros flemmards !
+
+```
+#!/bin/bash
+
+# Fichier de log
+LOG_FILE="/var/log/update_vaultwarden.log"
+
+# Fonction pour écrire dans le log et afficher dans le terminal avec timestamp
+log() {
+    local message="$1"
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    echo "$timestamp - $message" | tee -a $LOG_FILE
+}
+
+log "Début de la mise à jour de Vaultwarden."
+
+# Arrêter et supprimer le conteneur existant
+log "Arrêt du conteneur Docker vaultwarden..."
+sudo docker stop vaultwarden >> $LOG_FILE 2>&1 | tee -a $LOG_FILE
+log "Suppression du conteneur Docker vaultwarden..."
+sudo docker rm vaultwarden >> $LOG_FILE 2>&1 | tee -a $LOG_FILE
+
+# Télécharger la dernière version de Vaultwarden
+log "Téléchargement de la dernière version de Vaultwarden..."
+sudo docker pull vaultwarden/server:latest >> $LOG_FILE 2>&1 | tee -a $LOG_FILE
+
+# Relancer le conteneur avec les paramètres nécessaires
+log "Relance du conteneur Vaultwarden..."
+sudo docker run -d --name vaultwarden \
+    -e ROCKET_TLS='{certs="/ssl/certs.pem",key="/ssl/key.pem"}' \
+    -v /ssl/keys/:/ssl/ \
+    -v /vw-data/:/data/ \
+    -p 443:80 vaultwarden/server:latest >> $LOG_FILE 2>&1 | tee -a $LOG_FILE
+
+log "Opération terminée."
+```
+
+Plus qu'à lancer le script, et la mise a jour part ! Bien sur, on peut le mettre dans un cron pour le lancer régulièrement :-)
 
 ## upgrade openssh
 
@@ -450,6 +498,92 @@ julabuche@server:~/openssh-9.8p1 $ ssh -V
 OpenSSH_9.8p1, OpenSSL 3.0.13 30 Jan 2024
 ```
 
-voilà, openssh est à jour et la vulnérabilité est patchée !
+Voilà, openssh est à jour et la vulnérabilité est patchée !
 
+## Changer le port par défaut de SSH
 
+Il peut arriver que certaines personnes tente de brute force votre serveur (étant donné que c'est un serveur visible sur internet), donc pour remédier à ça on peut remplacer le port par défaut qu'utilise SSH.
+
+Ouvrir le fichier de configuration SSH avec un éditeur de texte (par exemple nano):
+
+```
+sudo nano /etc/ssh/sshd_config
+```
+
+Remplacer la ligne ```# Port 22``` par la ligne suivante (en enlevant le # et en changeant le port) :
+```
+Port 37845
+```
+
+Personnellement je n'utilise pas de pare feu, mais si vous en utilisez il faut laisser passer ce port :
+
+Avec UFW :
+
+```
+sudo ufw allow 37845/tcp
+sudo ufw deny 22/tcp # à faire après avoir testé que tout fonctionne correctement
+sudo ufw status
+```
+
+Avec IPTABLES : 
+
+```
+sudo iptables -A INPUT -p tcp --dport 37845 -j ACCEPT
+sudo apt-get install iptables-persistent
+sudo netfilter-persistent save
+```
+
+On redémarre SSH :
+
+```
+sudo systemctl restart ssh
+```
+
+Personnellement, j'ai aussi dû supprimer le service ```ssh.socket``` qui posait problème et qui m'empêchait de changer le port de connexion :
+
+```
+sudo systemctl disable ssh.socket
+sudo systemctl stop ssh.socket
+sudo systemctl restart ssh
+```
+
+Tester la connexion SSH sur le nouveau port
+```
+ssh -p 37845 julabuche@server
+```
+
+Une fois SSH redémarré, on peut vérifier que le serveur SSH écoute bien sur le nouveau port :
+
+```
+sudo ss -tulnp | grep ssh
+tcp   LISTEN   0        128                *:37845             *:*    users:(("sshd",pid=1234,fd=3))
+```
+
+Si on veut bien faire, on peut désactiver également le passage du port 22 via les firewall :
+
+Avec UFW : 
+
+```
+sudo ufw deny 22/tcp
+```
+
+Et pour vérifier : 
+```
+sudo ufw status
+```
+
+Avec IPTABLES :
+
+```
+sudo iptables -A INPUT -p tcp --dport 22 -j DROP
+```
+
+Et pour vérifier
+```
+sudo iptables -L -n -v
+```
+Vous devriez voir apparaitre ceci :
+```
+    0     0 ACCEPT     6    --  *      *       0.0.0.0/0            0.0.0.0/0            tcp dpt:37845
+   10   584 DROP       6    --  *      *       0.0.0.0/0            0.0.0.0/0            tcp dpt:22
+```
