@@ -210,9 +210,6 @@ Voilà, là on est bon ! vous pouvez essayer d'accéder à votre serveur via le 
 * Lors de l'installation du certificat SSL Letsencrypt, il arrive parfois que tous les certificats soient pris et qu'il faille attendre pour le générer. la date et l'heure où vous pouvez réessayer sont inscrits dans les logs quand ça vous met l'erreur.
 * Certains réseaux d'entreprises ayant des exigences de sécurité un peu élevées peuvent bloquer l'accès au serveur à cause du certificat Letsencrypt. du coup je vous invite à utiliser un autre certificat si vous le pouvez, mais letsencrypt fonctionne très bien sur des réseaux domestiques. si vous avez que cet usage là, pour le coup letsencrypt fera tout votre usage.
 
-pour la sauvegarde de la BDD, il faut encore que je me penche sur le sujet. le mieux serait soit d'avoir un sauvegarde de la BDD sur un support externe, un serveur à part, ou encore avoir un 2e serveur bitwarden délocalisé afin d'avoir une redondance. 
-_En cours de réflexion_
-
 #### Mise en place du cron
 
 Pour plusieurs raisons, vous pouvez être amené à redémarrer le serveur, sauf que le conteneur ne redémarre pas automatiquement : il faut donc dire au serveur de démarrer le conteneur avec tous les paramètres à chaque redémarrage. Attention : il faut absolument le faire en root !!
@@ -261,6 +258,111 @@ crontab: installing new crontab
 
 On rentre ici le paramètre ```@reboot``` qui permet de lancer la commande qui suit à chaque redémarrage. La commande qui suit est la même que tout à l'heure pour le lancer manuellement, siplement sans le sudo (car on est en root ;), et on ajoute juste avant la suppression de l'ancien conteneur nommé vaultwarden sinon il redémarrera pas ^^
 Vous pouvez ensuite enregistrer le fichier et redémarrer votre serveur pour tester si le conteneur se lance correctement !
+
+#### En cas d'indisponibilité du serveur
+
+Jusqu'à présent, je faisais tourner mon serveur sur ma Freebox, cependant dans mon quartier j'ai eu une période avec pas mal de coupures internet qui durent longtemps. Vous en conviendrez que pour l'utilisation d'un gestionnaire de mot de passe, ça pose problème si une coupure de 2 semaines venait à arriver. (spoiler : c'est déjà arrivé !). On peut aussi garder l'éventualité que le serveur plante (c'est aussi déjà arrivé, souvenez vous de ma carte SD...). Du coup, qu'est-ce qu'on fait ?
+
+Plusieurs solutions peuvent palier à ce problème. J'ai eu 2 idées :
+* Mettre en place une sauvegarde de la BDD. Ca peut être bien en cas de plantage du serveur afin d'avoir une sauvegarde, mais si y'a des coupures internet ça garde le serveur indispo. Et puis, faire une sauvegarde implique d'avoir un 2e support de stockage, ce qui peut être contraignant dans certaines configurations/infrastructures.
+* Mettre en place un 2e serveur pour avoir une redondance. C'est la solution qui offre la meilleure qualité de service, mais c'est aussi la plus compliquée à mettre en place :D
+
+Au final, je suis parti sur la 2e solution. J'ai l'avantage de pouvoir avoir 2 serveurs à 2 endroits différents (un chez moi, et l'autre chez mes parents), ça a l'avantage de protéger aussi des risques physiques (incendie par exemple). Donc l'idée, c'est d'avoir 2 serveurs identiques qui communiquent entre eux via un tunnel VPN pour sécuriser l'échange des données. Un script utilisant la solution ```rsync``` permettra d'échanger les données entre les 2 serveurs afin que les 2 serveurs aient toujours les mêmes données. Cela apportera une synchronisation bi-directionnelle.
+
+Prérequis :
+* 2 serveurs communiquant entre eux en réseau (via IPv4 ou IPv6, le plus simple étant IPv6 car pas besoin d'ouverture de ports)
+
+##### Mise en place du tunnel VPN
+
+On va commencer par mettre en place un tunnel VPN, pour cela on va utiliser WireGuard. Rien à voir avec les solutions du type NordVPN, NordVPN ayant pour objectif principal de faire du chiffre. Ici, c'est totalement gratuit !
+
+On commence par installer WireGuard **sur les 2 serveurs** et on se rend ensuite dans le dossier correspondant avec l'utilisateur root :
+```
+julabuche@server:~ $ sudo apt install wireguard
+julabuche@server:~ $ cd /etc/wireguard/
+julabuche@server:/etc/wireguard/ $ sudo -s
+root@server:/etc/wireguard/ $
+```
+
+Sur un des 2 serveurs, on va lancer ces 2 commandes qui vont servir à génerer les clés des serveurs/client, qu'on va ensuite intégrer à la configuration de WireGuard :
+
+```
+wg genkey | tee /etc/wireguard/server_private.key | wg pubkey > /etc/wireguard/server_public.key
+wg genkey | tee /etc/wireguard/client_private.key | wg pubkey > /etc/wireguard/client_public.key
+```
+
+Dans le répertoire ```/etc/wireguard``` vous trouverez 4 fichiers :
+
+```
+root@server:/etc/wireguard# ll
+total 36
+drwx------   2 root root  4096 Mar 12 08:34 ./
+drwxr-xr-x 118 root root 12288 Mar 11 10:14 ../
+-rw-r--r--   1 root root    45 Mar  5 17:19 client_private.key
+-rw-r--r--   1 root root    45 Mar  5 17:19 client_public.key
+-rw-r--r--   1 root root    45 Mar  5 17:16 server_private.key
+-rw-r--r--   1 root root    45 Mar  5 17:16 server_public.key
+```
+
+Ces fichiers vont servir pour éditer la configuration de WireGuard.
+
+Ensuite, sur le serveur principal (le "serveur VPN"), on édite le fichier suivant :
+
+```
+sudo nano /etc/wireguard/wg0.conf
+```
+
+```
+[Interface]
+Address = 10.0.0.1/24
+SaveConfig = true
+ListenPort = 51820
+PrivateKey = PRIVATE_SERVER
+
+[Peer]
+PublicKey = PUBLIC_CLIENT
+AllowedIPs = 10.0.0.2/32
+Endpoint = [IPV6_CLIENT_VPN]:33853
+```
+
+Ensuite, sur le serveur secondaire (le "client VPN"), on édite le fichier suivant :
+
+```
+sudo nano /etc/wireguard/wg0.conf
+```
+
+```
+[Interface]
+PrivateKey = PRIVATE_CLIENT
+Address = 10.0.0.2/24
+DNS = 8.8.8.8
+
+[Peer]
+PublicKey = PUBLIC_SERVER 
+Endpoint = [IPV6_SERVEUR_VPN]:51820
+AllowedIPs = 10.0.0.0/24
+PersistentKeepalive = 25
+```
+
+Une fois les fichiers de configuration édités, il faut lancer le service :
+
+_Seulement sur le "serveur VPN" :_
+
+```
+sudo wg addconf wg0 <(wg showconf wg0)
+```
+
+_Sur les 2 machines :_
+
+```
+sudo systemctl enable wg-quick@wg0
+sudo systemctl start wg-quick@wg0
+sudo systemctl status wg-quick@wg0
+```
+
+Personnellement, j'ai dû installer le paquet ```resolvconf``` sur une des 2 machines sinon ça ne marchait pas.
+
+On peut tester le bon fonctionnement en tapant la commande ```ip a``` et voir si une carte réseau nommée ```wg0``` est bien présente. On peut aussi essayer de ping les adresses IP ```10.0.0.1``` et ```10.0.0.2``` pour voir si ça fonctionne !
 
 ## renouvellement du certificat
 
