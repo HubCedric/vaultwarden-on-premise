@@ -5,6 +5,12 @@ je me suis lancé dans la mise en place d'un gestionnaire de mot de passe on pre
 
 état des lieux : actuellement sous bitwarden en mode saas, l'idée est de migrer mes mots de passe sur un serveur en local afin qu'ils ne se trouvent pas sur des serveurs dont je n'ai pas la main.
 
+# Sommaire
+
+* [Mise en place](#mise-en-place)
+  * [Installation sur Raspberry Pi](#installation-sur-raspberry-pi)
+
+
 ## Mise en place
 idée du projet : installation de la solution Vaultwarden (obligatoire pour les architectures ARM tels que Raspberry Pi ou Freebox OS), et utilisation de la solution IPv6 pour accéder au serveur depuis l'extérieur, sans avoir besoin d'ouvrir des ports sur le routeur ce qui pose souvent des problèmes de sécurité. 
 
@@ -371,7 +377,9 @@ Afin de sécuriser le transit des données, on va mettre en place un compte util
 
 **/!\ Manipulations à faire sur les 2 serveurs !**
 
-```sudo adduser transferdata```
+```
+sudo adduser transferdata
+```
 
 On va ensuite ajouter un nouveau groupe nommé de la même manière que l'utilisateur (question de simplicité), puis affecter à ce groupe les droits root 
 
@@ -589,7 +597,7 @@ log "Opération terminée."
 
 Plus qu'à lancer le script, et la mise a jour part ! Bien sur, on peut le mettre dans un cron pour le lancer régulièrement :-)
 
-## upgrade openssh
+## Upgrade OpenSSH
 
 une vulnérabilité d'openssh est sortie début juillet 2024, voici la procédure pour le mettre à jour (un apt-get install openssh-server ne suffit pas car les repo de base ne sont pas encore à jour visiblement)
 
