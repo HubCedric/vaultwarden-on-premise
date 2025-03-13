@@ -9,6 +9,22 @@ je me suis lancé dans la mise en place d'un gestionnaire de mot de passe on pre
 
 * [Mise en place](#mise-en-place)
   * [Installation sur Raspberry Pi](#installation-sur-raspberry-pi)
+    * [Installation de l'OS](#installation-de-los)  
+  * [Installation sur Freebox OS](#installation-sur-freebox-os)  
+    * [Installation de l'OS](#installation-de-los-1)  
+    * [Préparation de l'OS](#préparation-de-los)  
+    * [Installation de Docker](#installation-de-docker)  
+    * [Mettre en place le certificat HTTPS](#mettre-en-place-le-certificat-https)  
+    * [Mise en place du cron](#mise-en-place-du-cron)
+* [En cas d'indisponibilité du serveur](#en-cas-dindisponibilité-du-serveur)  
+  * [Mise en place du tunnel VPN](#mise-en-place-du-tunnel-vpn)  
+  * [Mise en place d'un compte pour le transfert des fichiers](#mise-en-place-dun-compte-pour-le-transfert-des-fichiers)  
+  * [Le script de synchronisation](#le-script-de-synchronisation)  
+* [Sécurité](#sécurité)  
+  * [Renouvellement du certificat](#renouvellement-du-certificat)  
+  * [Mises à jour de Vaultwarden](#mises-à-jour-de-vaultwarden)  
+  * [Upgrade OpenSSH](#upgrade-openssh)  
+  * [Changer le port par défaut de SSH](#changer-le-port-par-défaut-de-ssh)  
 
 
 ## Mise en place
