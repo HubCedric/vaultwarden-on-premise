@@ -387,152 +387,27 @@ Personnellement, j'ai dû installer le paquet ```resolvconf``` sur une des 2 mac
 
 On peut tester le bon fonctionnement en tapant la commande ```ip a``` et voir si une carte réseau nommée ```wg0``` est bien présente. On peut aussi essayer de ping les adresses IP ```10.0.0.1``` et ```10.0.0.2``` pour voir si ça fonctionne !
 
-### Mise en place d'un compte pour le transfert des fichiers
+## Transfert de la base de données SQLITE3 vers MySQL
 
-Afin de sécuriser le transit des données, on va mettre en place un compte utilisateur qui ne va servir que pour ça. On ne lui affectera donc que les droits qui seront nécessaires !
+Par défaut, Vaultwarden utilise une base de données SQLITE3 pour stocker vos mots de passe (de manière chiffrée évidemment), sauf qu'à l'usage c'est pas très utilisable. L'idée, c'est de "transformer" la base SQLITE3 vers une base MySQL, afin de pouvoir répliquer les données de façon automatique et instantanément vers le 2e serveur de backup.
 
-**/!\ Manipulations à faire sur les 2 serveurs !**
+Les 2 serveurs se verront utiliser une base MySQL à terme, et non pas une base SQLITE3.
 
+Avant tout, il faudra installer les paquets suivants
 ```
-sudo adduser transferdata
-```
-
-On va ensuite ajouter un nouveau groupe nommé de la même manière que l'utilisateur (question de simplicité), puis affecter à ce groupe les droits root 
-
-```
-groupadd transferdata
-sudo usermod -aG transferdata root
+sudo apt install mariadb-server python3
+sudo python3 -m pip install sqlite3-to-mysql --break-system-packages
 ```
 
-Par la suite, on change le groupe à qui appartient le dossier ```/vw-data``` (je vous expliquerai à quoi correspond ce dossier plus tard) :
-
+Ensuite, on peut lancer le transfert SQLITE3 vers MySQL
 ```
-sudo chown :transferdata /vw-data/
-sudo chmod g+w /vw-data/
+julabuche@server:/vw-data/ $ sqlite3mysql -f db.sqlite3 -d vaultwarden -u vaultwarden -p -X -i IGNORE
 ```
 
-Notre utilisateur `transferdata` est prêt. Désormais, on va setup des clés SSH pour l'utilisateur `root`, utilisateur qui va lancer le futur script de transfert des données avec `cron`.
+Vous pouvez lancer cette commande seulement sur un serveur, la réplication fera que les données seront automatiquement synchronisées.
 
-```
-julabuche@server:~ $ sudo -s
-root@server:/home/julabuche# ssh-keygen -t rsa
-Generating public/private rsa key pair.
-Enter file in which to save the key (/root/.ssh/id_rsa): 
-Enter passphrase (empty for no passphrase): 
-Enter same passphrase again: 
-Your identification has been saved in /root/.ssh/id_rsa
-Your public key has been saved in /root/.ssh/id_rsa.pub
-The key fingerprint is:
-SHA256:*********** root@server
-The key's randomart image is:
-+---[RSA 3072]----+
-|  *********$     |
-|  *********$     |
-|  *********$     |
-|  *********$     |
-|  *********$     |
-|  *********$     |
-|  *********$     |
-|  *********$     |
-|  *********$     |
-+----[SHA256]-----+
-```
 
-Bien entendu, on se connecte en SSH via l'adresse IP du tunnel VPN, sinon on perd tout l'interêt de ce dernier ;)
 
-```
-root@server:/home/julabuche# ssh-copy-id transferdata@10.0.0.1
-/usr/bin/ssh-copy-id: INFO: Source of key(s) to be installed: "/root/.ssh/id_rsa.pub"
-/usr/bin/ssh-copy-id: INFO: attempting to log in with the new key(s), to filter out any that are already installed
-/usr/bin/ssh-copy-id: INFO: 1 key(s) remain to be installed -- if you are prompted now it is to install the new keys
-transferdata@10.0.0.1's password: 
-
-Number of key(s) added: 1
-
-Now try logging into the machine, with:   "ssh 'transferdata@10.0.0.1'"
-and check to make sure that only the key(s) you wanted were added.
-```
-
-Voilà, notre clé SSH est prête, on peut la tester :
-
-```
-root@server:/home/julabuche# ssh transferdata@10.0.0.1
-```
-
-Et normalement vous devriez pouvoir vous connecter en SSH au serveur miroir sans mot de passe. Si c'est bon, on peut passer à la suite !
-
-**/!\ Bien entendu, la génération de clés SSH avec l'utilisateur `root` doit être faite sur les 2 serveurs !**
-
-### Le script de synchronisation
-
-Avant de se lancer dans le script de synchro des données, il faut installer ces 2 paquets :
-
-```
-sudo apt install rsync -y
-sudo apt install lsof -y
-```
-
-Pour ce qui est du script, je l'ai mis dans le répertoire `/usr/local/bin` et il se nomme `sync_bitwarden.sh`. Le voici :
-
-```
-#!/bin/bash
-
-# Configuration des paramètres de synchronisation
-USER="transferdata"
-REMOTE_SERVER="$USER@10.0.0.2"
-SSH_PORT=[Port SSH à spécifier si différent du port par défaut]
-LOCAL_DIR="/vw-data"
-REMOTE_DIR="/vw-data"
-LOG_FILE="/var/log/vw-sync.log"
-
-log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
-}
-
-# Vérifier que le fichier de log existe et que transfertdata a les bons droits
-if [ ! -f "$LOG_FILE" ]; then
-    touch "$LOG_FILE"
-    chown "$USER:$USER" "$LOG_FILE"
-    chmod 660 "$LOG_FILE"
-fi
-
-log "Début de la synchronisation avec $REMOTE_SERVER, même si Docker est actif."
-
-# Sauvegarde sécurisée de la base de données pour éviter la corruption
-log "Création d'une copie sécurisée de db.sqlite3."
-cp "$LOCAL_DIR/db.sqlite3" "$LOCAL_DIR/db.sqlite3.bak"
-
-# Vérification des fichiers les plus récents
-LOCAL_NEWEST_TIME=$(find "$LOCAL_DIR" -type f -printf "%T@ %p\n" | sort -nr | head >
-REMOTE_NEWEST_TIME=$(ssh -p "$SSH_PORT" -o BatchMode=yes "$REMOTE_SERVER" "find \"$>
-
-# Synchronisation des fichiers sans db.sqlite3 pour éviter la corruption
-if [[ -z "$REMOTE_NEWEST_TIME" || "$LOCAL_NEWEST_TIME" > "$REMOTE_NEWEST_TIME" ]]; >
-    log "Fichiers locaux plus récents, envoi vers $REMOTE_SERVER."
-    rsync -avz -e "ssh -p $SSH_PORT" --delete --no-perms --chmod=770 \
-          --exclude="db.sqlite3" --exclude="*.lock" --exclude="tmp/" \
-          "$LOCAL_DIR/" "$REMOTE_SERVER:$REMOTE_DIR/" 2>> "$LOG_FILE"
-
-    log "Envoi sécurisé de la copie de la base de données."
-    rsync -avz -e "ssh -p $SSH_PORT" --chmod=770 "$LOCAL_DIR/db.sqlite3.bak" "$REMO>
-
-    log "Synchronisation terminée : fichiers envoyés à $REMOTE_SERVER."
-elif [[ -z "$LOCAL_NEWEST_TIME" || "$LOCAL_NEWEST_TIME" < "$REMOTE_NEWEST_TIME" ]];>
-    log "Fichiers distants plus récents, récupération depuis $REMOTE_SERVER."
-    rsync -avz -e "ssh -p $SSH_PORT" --delete --no-perms --chmod=770 \
-          --exclude="db.sqlite3" --exclude="*.lock" --exclude="tmp/" \
-          "$REMOTE_SERVER:$REMOTE_DIR/" "$LOCAL_DIR/" 2>> "$LOG_FILE"
-
-    log "Récupération sécurisée de la base de données."
-    rsync -avz -e "ssh -p $SSH_PORT" --chmod=770 "$REMOTE_SERVER:$REMOTE_DIR/db.sql>
-
-    log "Synchronisation terminée : fichiers récupérés depuis $REMOTE_SERVER."
-else
-    log "Aucune modification détectée, pas de synchronisation nécessaire."
-fi
-```
-
-Rien de bien compliqué en soi dans le script. Ce dernier synchronise les fichiers du répertoire `/vw-data` entre le serveur local et un serveur distant via `rsync`. Il compare les dates des fichiers les plus récents des deux côtés pour déterminer si les fichiers doivent être envoyés ou récupérés. La base de données db.sqlite3 est exclue de la synchronisation directe pour éviter la corruption, et une copie de sauvegarde (db.sqlite3.bak) est utilisée à la place.
 
 # Sécurité
 
