@@ -296,6 +296,8 @@ Prérequis :
   * 2 serveurs faisant tourner le conteneur Vaultwarden. Le fonctionnement de Vaultwarden doit être une copie conforme des 2 côtés ! 
 * Les 3 serveurs doivent communiquer entre eux en réseau (via IPv4 ou IPv6, le plus simple étant IPv6 car pas besoin d'ouverture de ports)
 
+/!\ A partir de maintenant, étant donné qu'on met en place une redondance, il y a certaines configurations effectuées en amont qui ne seront plus utiles. Vous pouvez donc supprimer la ligne du cron permettant de redémarrer le conteneur, et vous n'avez pas besoin de certificat Let's Encrypt pour les serveurs finaux (ni même pour le VPS d'ailleurs, explications plus bas).
+
 ### Mise en place du tunnel VPN
 
 On va commencer par mettre en place un tunnel VPN, pour cela on va utiliser WireGuard. Rien à voir avec les solutions du type NordVPN, NordVPN ayant pour objectif principal de faire du chiffre. Ici, c'est totalement gratuit !
@@ -449,13 +451,63 @@ julabuche@server:/vw-data/ $ sqlite3mysql -f db.sqlite3 -d vaultwarden -u vaultw
 
 Vous pouvez lancer cette commande seulement sur un serveur, la réplication fera que les données seront automatiquement synchronisées.
 
+## Mise en place du cluster entre les 2 bases de données
+
 @Théo HUGUET doit encore éditer cette partie de la mise en place
+
+
+
+## Configuration du VPS
+
+Après avoir testé que la réplication fonctionne dans les 2 sens, on va pouvoir configurer le VPS.
+
+Comme dit plus haut, j'ai finalement acheté un nom de domaine. DynV6 et compagnie c'est bien beau, mais c'est pas trop top pour une utilisation "intensive", les DNS sont souvent dans les choux. C'était bien pour débuter mais à terme vaut mieux un truc qui marche 24/24 7/7.
+
+Le VPS va faire office de load balancer. C'est lui qui va choisir sur quel serveur final il va se connecter, et comme réplication est faite via le cluster, ce sera totalement transpartent pour l'utilisateur final. C'est à lui qu'on va se connecter en priorité en gros, et il va utiliser les adresse IP VPN afin que les serveurs finaux ne soient pas du tout visible depuis l'exterieur. Le but c'est qu'on y accède jamais en direct, mais uniquement via le load balancer !
+
+Pour ce faire, on va utiliser la solution Caddy. Cette derniere à l'avantage d'être simple à configurer, et a l'avantage de gérer nativement les certificats SSL, donc cela ne demandera jamais de repasser par dessus pour mettre à jour les certificats.
+
+```
+sudo apt install caddy
+```
+
+Ensuite on édite le fichier de conf : 
+
+```
+sudo nano /etc/caddy/Caddyfile
+```
+
+```
+bitwarden.mondomaine.fr {                                     # Ici il faut renseigner l'URL de votre domaine. Perso j'ai mis "bitwarden.mondomaine.fr"
+        reverse_proxy {                                       # Cela sert à ajouter les 2 serveurs finaux et que le VPS puisse choisir entre tout ceux qu'il y a dans la liste
+                to https://10.0.0.1                           # Ici c'est là ou vous allez mettre les 2 IP VPN de vos serveurs finaux
+                to https://10.0.0.2
+                lb_policy least_conn                          # Quelques paramètres supplémentaires
+                lb_try_duration 5s
+                lb_try_interval 250ms
+
+                # Ignorer les certificats auto-signés         # Ici c'est pour ignorer le fait qu'on a pas de certificat HTTPS pour les 2 IP VPN (pas de panique, la connexion se fera tout de même en HTTPS)
+                transport http {
+                        tls_insecure_skip_verify
+                }
+        }
+}
+```
+
+Ensuite on relance le service :
+
+```
+sudo caddy reload --config /etc/caddy/Caddyfile 
+```
+
+Parallèlement à ça, il faudra vous rendre sur le manager de votre nom de domaine et allouer l'adresse IPv4 et IPv6 du VPS au domaine que vous avez enregistré dans votre configuration Caddy (en l'occurence ici "bitwarden.mondomaine.fr").
+On attend quelques dizaines de secondes que les DNS se mettent à jour, et normalement ça fonctionne !
 
 
 # Sécurité
 
 Voici un chapitre concernant la sécurité du serveur mis en place. Etant donné qu'on est sur un serveur hébergeant des mots de passe, ce n'est pas un aspect à prendre à la légère. Ici, on va voir comment :
-* Renouveler le certificat HTTPS
+* Renouveler le certificat HTTPS en cas d'installation sans cluster
 * Mettre à jour le conteneur docker Vaultwarden
 * Mettre à jour OpenSSH
 * Changer le port par défaut de SSH
