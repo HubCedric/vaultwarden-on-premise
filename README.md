@@ -455,8 +455,89 @@ Vous pouvez lancer cette commande seulement sur un serveur, la réplication fera
 
 ## Mise en place du cluster entre les 2 bases de données
 
-@Théo HUGUET doit encore éditer cette partie de la mise en place
+---
 
+### Prérequis
+
+- Deux serveurs MariaDB (`db1` et `db2`) avec la **même version** installée
+- Un accès root sur les deux serveurs
+- Le port **3306** ouvert entre les deux serveurs
+- Les deux serveurs doivent avoir des **adresses IP fixes**
+- Pare-feu configuré pour autoriser les connexions entre les serveurs MariaDB
+
+---
+
+### Configuration de MariaDB
+
+Modifier le fichier de configuration MariaDB (`/etc/mysql/mariadb.conf.d/50-server.cnf` ou `/etc/my.cnf`) sur **les deux serveurs** :
+
+#### Sur `srv1` :
+
+```
+[mysqld]
+server-id = 1
+log_bin = mysql-bin
+binlog_format = ROW
+bind-address = 0.0.0.0 <= IP SRV1 VPN
+auto_increment_increment = 2
+auto_increment_offset = 1
+skip-name-resolve
+```
+
+#### Sur `srv2` :
+```
+[mysqld]
+server-id = 2
+log_bin = mysql-bin
+binlog_format = ROW
+bind-address = 0.0.0.0 <= IP SRV2 VPN
+auto_increment_increment = 2
+auto_increment_offset = 2
+skip-name-resolve
+```
+
+#### Sur `srv1` & `srv2`
+```
+sudo systemctl restart mariadb
+```
+
+```
+CREATE USER 'repli'@'%' IDENTIFIED BY 'password';
+GRANT REPLICATION SLAVE ON *.* TO 'repli'@'%';
+FLUSH PRIVILEGES;
+```
+
+### Configuration de la réplication
+
+#### Sur `srv1` :
+
+```
+CHANGE MASTER TO
+  MASTER_HOST='srv2',
+  MASTER_USER='repli',
+  MASTER_PASSWORD='password',
+  MASTER_PORT=3306,
+  MASTER_USE_GTID=slave_pos;
+
+START SLAVE;
+```
+
+#### Sur `srv2` :
+```
+CHANGE MASTER TO
+  MASTER_HOST='srv1',
+  MASTER_USER='repli',
+  MASTER_PASSWORD='password',
+  MASTER_PORT=3306,
+  MASTER_USE_GTID=slave_pos;
+
+START SLAVE;
+```
+
+#### Vérification sur `srv1` & `srv2` :
+```
+SHOW SLAVE STATUS\G
+```
 
 
 ## Configuration du VPS
