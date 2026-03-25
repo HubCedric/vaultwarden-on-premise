@@ -21,6 +21,7 @@ je me suis lancé dans la mise en place d'un gestionnaire de mot de passe on pre
   * [Transfert de la base de données SQLITE3 vers MySQL](#transfert-de-la-base-de-donnees-sqlite3-vers-mysql)
   * [Mise en place du cluster entre les 2 bases de données](#mise-en-place-du-cluster-entre-les-2-bases-de-donnees)
   * [Configuration du VPS](#configuration-du-vps)
+* [Debug](#debug)  
 * [Sécurité](#sécurité)  
   * [Renouvellement du certificat](#renouvellement-du-certificat)  
   * [Mises à jour de Vaultwarden](#mises-à-jour-de-vaultwarden)  
@@ -585,6 +586,47 @@ sudo caddy reload --config /etc/caddy/Caddyfile
 
 Parallèlement à ça, il faudra vous rendre sur le manager de votre nom de domaine et allouer l'adresse IPv4 et IPv6 du VPS au domaine que vous avez enregistré dans votre configuration Caddy (en l'occurence ici "bitwarden.mondomaine.fr").
 On attend quelques dizaines de secondes que les DNS se mettent à jour, et normalement ça fonctionne !
+
+## Debug
+
+J'ai rencontré un bug sur les versions supérieurs à 2025.7.0 de Vaultwarden. Etant donné que j'utilise une BDD MySQL, il peut arriver des bugs et incompatibiltés, et on est typiquement dans le cas.
+
+J'avais cette erreur : 
+
+```
+[2026-03-25 22:16:56.111][panic][ERROR] thread 'main' panicked at 'Error running migrations: QueryError(DieselMigrationName { name: "2024-03-06-170000_add_sso_users", version: MigrationVersion("20240306170000") }, DatabaseError(Unknown, "Can't create table vaultwarden_test.sso_users (errno: 150 \"Foreign key constraint is incorrectly formed\")"))': src/db/mod.rs:505
+```
+
+Pour la faire courte, une table `sso_users` devait être créée suite à cette mise à jour, et une incompatibilité sur la forme de la table `users` empêchait la création de la table `sso_users`
+
+Pour le debug : 
+
+Backup de la BDD
+
+```
+mysqldump -u <user> -p vaultwarden > backup_vaultwarden_prod.sql
+```
+
+Suppression des conteneurs Docker existants :
+
+```
+sudo docker stop vaultwarden
+sudo docker rm vaultwarden
+```
+
+Modification dans la BDD :
+
+```
+DROP TABLE IF EXISTS sso_users
+ALTER TABLE users MODIFY COLUMN uuid VARCHAR(36) NOT NULL;
+```
+
+Dans le dossier `/opt/vaultwarden/` où se trouve le `docker-compose.yml` :
+
+```
+sudo docker pull vaultwarden/server:latest
+sudo docker-compose up -d
+```
 
 
 # Sécurité
