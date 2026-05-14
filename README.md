@@ -628,6 +628,31 @@ sudo docker pull vaultwarden/server:latest
 sudo docker-compose up -d
 ```
 
+## Si besoin de downgrade de version
+
+Modifier le docker-compose.yml avec le bon numéro de version du conteneur :
+
+```
+text
+services:
+  vaultwarden:
+    image: vaultwarden/server:1.35.0
+    # … autres options
+```
+Puller la nouvelle (en fait ancienne) image.
+
+Dans le dossier où est le docker-compose.yml :
+```
+sudo docker-compose pull
+```
+
+Redémarrer le service
+
+```
+docker-compose down
+docker-compose up -d
+```
+
 
 # Sécurité
 
