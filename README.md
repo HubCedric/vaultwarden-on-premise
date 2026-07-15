@@ -22,9 +22,12 @@ je me suis lancé dans la mise en place d'un gestionnaire de mot de passe on pre
   * [Mise en place du cluster entre les 2 bases de données](#mise-en-place-du-cluster-entre-les-2-bases-de-donnees)
   * [Configuration du VPS](#configuration-du-vps)
 * [Debug](#debug)  
+  * [Root cause : colonnes uuid/id converties en TEXT au lieu de VARCHAR(36)](#root-cause--colonnes-uuidid-converties-en-text-au-lieu-de-varchar36)  
+* [Si besoin de downgrade de version](#si-besoin-de-downgrade-de-version)  
 * [Sécurité](#sécurité)  
   * [Renouvellement du certificat](#renouvellement-du-certificat)  
   * [Mises à jour de Vaultwarden](#mises-à-jour-de-vaultwarden)  
+    * [Script de mise à jour semi-automatique (avec backup, vérification et rollback)](#script-de-mise-à-jour-semi-automatique-avec-backup-vérification-et-rollback)  
   * [Upgrade OpenSSH](#upgrade-openssh)  
   * [Changer le port par défaut de SSH](#changer-le-port-par-défaut-de-ssh)  
 
@@ -628,6 +631,12 @@ sudo docker pull vaultwarden/server:latest
 sudo docker-compose up -d
 ```
 
+### Root cause : colonnes uuid/id converties en TEXT au lieu de VARCHAR(36)
+
+En creusant plus loin (rencontré à nouveau en passant de 1.35.8 à 1.36.0, cette fois sur la table `archives` et la colonne `ciphers.uuid`), la vraie cause commune à ces deux bugs est la même : l'outil `sqlite3-to-mysql` utilisé pour la conversion initiale (voir [Transfert de la base de données SQLITE3 vers MySQL](#transfert-de-la-base-de-donnees-sqlite3-vers-mysql)) a converti quasiment toutes les colonnes `uuid` / `*_uuid` / `id` en `TEXT` au lieu de `VARCHAR(36)`/`CHAR(36)` comme le prévoit le schéma officiel de Vaultwarden. Une colonne `TEXT` ne peut porter qu'un index de préfixe (ex: `PRIMARY KEY (uuid(255))`), jamais un index sur sa valeur complète — or une clé étrangère exige un index complet sur la colonne référencée. Résultat : **chaque nouvelle version qui ajoute une clé étrangère vers une colonne uuid encore mal typée** provoque la même erreur (`errno: 150`), sur une table différente à chaque fois.
+
+Cette correction est intégrée directement dans [`scripts/update_vaultwarden.sh`](scripts/update_vaultwarden.sh) (flag `--fix-uuid-columns`, voir la section [Script de mise à jour semi-automatique](#script-de-mise-à-jour-semi-automatique-avec-backup-vérification-et-rollback)) plutôt que dans un script séparé, afin qu'une mise à jour future puisse la déclencher automatiquement dès qu'elle détecte des colonnes uuid/id encore en `TEXT`, sans avoir à redécouvrir le problème table par table à chaque fois.
+
 ## Si besoin de downgrade de version
 
 Modifier le docker-compose.yml avec le bon numéro de version du conteneur :
@@ -732,6 +741,53 @@ log "Opération terminée."
 ```
 
 Plus qu'à lancer le script, et la mise a jour part ! Bien sur, on peut le mettre dans un cron pour le lancer régulièrement :-)
+
+### Script de mise à jour semi-automatique (avec backup, vérification et rollback)
+
+Suite au bug de migration rencontré en passant de 1.35.8 à 1.36.0 (voir [Debug](#debug)), le script précédent a été complété par [`scripts/update_vaultwarden.sh`](scripts/update_vaultwarden.sh), pensé pour un déploiement `docker-compose`. Contrairement au script ci-dessus, il ne se contente pas de puller `latest` et relancer : il **vérifie avant d'agir** et sait **revenir en arrière** si la mise à jour échoue.
+
+Ce que fait le script, dans l'ordre :
+
+1. **Backup** de la base (`mysqldump` compressé et horodaté) avant toute action, avec purge automatique des backups trop anciens.
+2. **Vérification préventive du charset/collation** de la base (`utf8mb4` / `utf8mb4_unicode_ci`). Si un problème est détecté :
+   - sans le flag `--fix-collation` : le script **s'arrête immédiatement sans rien modifier** et renvoie vers la procédure de correction du [wiki officiel MariaDB backend](https://github.com/dani-garcia/vaultwarden/wiki/Using-the-MariaDB-%28MySQL%29-Backend#foreign-key-errors-collation-and-charset) ;
+   - avec le flag `--fix-collation` : le script affiche les commandes SQL qu'il va exécuter, **demande une confirmation explicite** (`[y/N]`), puis applique lui-même l'`ALTER DATABASE` et les `ALTER TABLE ... CONVERT TO CHARACTER SET` sur toutes les tables, et revérifie que la correction a bien pris avant de poursuivre.
+3. **Vérification préventive des colonnes uuid/id encore en TEXT** (résidu de la conversion SQLite → MySQL, cf. [Debug](#debug) — c'est ce qui a bloqué `users.uuid` puis `ciphers.uuid`, une table différente à chaque montée de version). Si un problème est détecté :
+   - sans le flag `--fix-uuid-columns` : le script **s'arrête immédiatement sans rien modifier** et liste les colonnes concernées ;
+   - avec le flag `--fix-uuid-columns` : le script repère toutes les colonnes `uuid`/`id`/`*_uuid` encore en `TEXT`, ne convertit une colonne que si **100% de ses valeurs non nulles font exactement 36 caractères** (sinon elle est ignorée et signalée, jamais tronquée), reconstruit les index (clé primaire, unique, secondaire) qui portaient un préfixe sur ces colonnes, affiche le plan complet et demande confirmation avant toute exécution.
+   - Dans les deux cas, le script ne crée et ne supprime jamais de table lui-même — la création de tables (ex: `archives`, `sso_users`) reste toujours du ressort des migrations internes de Vaultwarden.
+4. **Pull** de la version demandée (passée en argument, jamais `latest`, pour rester reproductible) et mise à jour du tag dans `docker-compose.yml` (avec vérification que la substitution a bien pris effet avant de continuer).
+5. **Relance** du conteneur (`docker-compose up -d`) — c'est Vaultwarden qui exécute ses propres migrations au démarrage, le script ne crée ni ne modifie aucune table.
+6. **Contrôle post-update** : attente du healthcheck du conteneur (affiche les logs du conteneur **en direct dans le même terminal** pendant l'attente, pas besoin d'ouvrir une deuxième session) et scan des logs à la recherche des erreurs de migration connues (`panic`, `Error running migrations`, `QueryError`).
+7. **Rollback automatique** si l'étape 5 échoue à démarrer ou si l'étape 6 détecte un problème : le tag précédent est restauré dans `docker-compose.yml` et l'ancienne version est relancée.
+
+**Installation :**
+
+```
+cd /opt/vaultwarden
+cp /chemin/vers/scripts/update_vaultwarden.sh .
+cp /chemin/vers/scripts/.env.example ./.env
+nano .env   # renseigner COMPOSE_DIR, identifiants DB, chemins de backup, etc.
+chmod +x update_vaultwarden.sh
+```
+
+**Utilisation :**
+
+```
+./update_vaultwarden.sh 1.36.0
+```
+
+Ou, si le charset/collation et/ou les colonnes uuid/id doivent être corrigés automatiquement (avec confirmation avant toute modification) :
+
+```
+./update_vaultwarden.sh 1.36.0 --fix-collation --fix-uuid-columns
+```
+
+En cas de doute sur l'état de la base, il ne coûte rien de toujours passer les deux flags : chaque vérification ne déclenche sa correction (et sa confirmation) que si un problème est réellement détecté, sinon le script log simplement "OK" et continue.
+
+/!\ Le fichier `.env` contient les identifiants de la base et n'est jamais commité (voir `.gitignore`).
+
+/!\ Limite du rollback : si une migration a déjà modifié une partie du schéma avant d'échouer plus loin, revenir à l'ancienne image Docker ne annule pas forcément ces changements de schéma. Le backup effectué à l'étape 1 reste donc la garantie ultime pour restaurer un état cohérent si besoin.
 
 ## Upgrade OpenSSH
 
