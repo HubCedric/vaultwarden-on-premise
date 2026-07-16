@@ -1,2 +1,10 @@
 scripts/.env
+scripts/*.env
 .DS_Store
+
+# Jamais de dump de base de données dans le dépôt (données de production)
+*.sql
+*.sql.gz
+
+# Répertoire de travail personnel Claude Code, jamais partagé via le dépôt
+.claude/

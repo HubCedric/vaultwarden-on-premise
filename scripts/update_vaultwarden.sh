@@ -61,7 +61,7 @@ log() {
   local message="$1"
   local timestamp
   timestamp="$(date +"%Y-%m-%d %H:%M:%S")"
-  echo "$timestamp - $message" | tee -a "$LOG_FILE"
+  echo "$timestamp - $message" | tee -a "$UPDATE_LOG_FILE"
 }
 
 fail() {
@@ -122,12 +122,12 @@ fix_collation() {
 
   log "Correction de la collation en cours..."
   if ! MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -u "$DB_USER" -e \
-    "ALTER DATABASE \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>>"$LOG_FILE"; then
+    "ALTER DATABASE \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>>"$UPDATE_LOG_FILE"; then
     fail "Échec de l'ALTER DATABASE. Mise à jour annulée (backup disponible: $BACKUP_FILE)."
   fi
 
   log "Suppression temporaire de ${fk_count} clé(s) étrangère(s), conversion des tables, puis recréation des clés étrangères..."
-  if ! MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" 2>>"$LOG_FILE" <<SQL
+  if ! MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" 2>>"$UPDATE_LOG_FILE" <<SQL
 SET foreign_key_checks=0;
 ${fk_drop_statements}
 ${alter_statements}
@@ -190,7 +190,7 @@ fix_uuid_columns() {
 
   if [[ -n "$skipped_list" ]]; then
     log "Colonnes ignorées (longueur != 36, non touchées, à examiner manuellement) :"
-    echo "$skipped_list" | tee -a "$LOG_FILE"
+    echo "$skipped_list" | tee -a "$UPDATE_LOG_FILE"
   fi
 
   if [[ -z "$safe_list" ]]; then
@@ -275,7 +275,7 @@ fix_uuid_columns() {
   for i in "${!table_names[@]}"; do
     tbl="${table_names[$i]}"
     log "Conversion de la table ${tbl}..."
-    if ! MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" -e "${alter_statements[$i]}" 2>>"$LOG_FILE"; then
+    if ! MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" -e "${alter_statements[$i]}" 2>>"$UPDATE_LOG_FILE"; then
       fail "Échec sur la table ${tbl}. Tables déjà converties avant celle-ci (voir log) : laissez-les en l'état ou restaurez le backup si besoin ($BACKUP_FILE). Mise à jour annulée."
     fi
     log "Table ${tbl} convertie avec succès."
@@ -363,7 +363,7 @@ fi
 
 # --- Pull de la nouvelle image ---
 log "Pull de vaultwarden/server:$NEW_VERSION"
-if ! docker pull "vaultwarden/server:$NEW_VERSION" >> "$LOG_FILE" 2>&1; then
+if ! docker pull "vaultwarden/server:$NEW_VERSION" >> "$UPDATE_LOG_FILE" 2>&1; then
   fail "Le pull de l'image $NEW_VERSION a échoué."
 fi
 
@@ -379,14 +379,14 @@ log "docker-compose.yml mis à jour ($CURRENT_VERSION -> $NEW_VERSION), backup: 
 rollback() {
   log "ROLLBACK: retour à la version $CURRENT_VERSION"
   cp "$COMPOSE_FILE.bak" "$COMPOSE_FILE"
-  (cd "$COMPOSE_DIR" && docker-compose up -d) >> "$LOG_FILE" 2>&1
+  (cd "$COMPOSE_DIR" && docker-compose up -d) >> "$UPDATE_LOG_FILE" 2>&1
   log "ROLLBACK terminé. Le service tourne à nouveau en $CURRENT_VERSION."
   log "/!\\ Si une migration a partiellement modifié le schéma avant d'échouer, vérifiez l'état de la base manuellement (backup disponible: $BACKUP_FILE)."
 }
 
 # --- Application de la mise à jour ---
 log "Relance du conteneur avec la version $NEW_VERSION"
-if ! (cd "$COMPOSE_DIR" && docker-compose up -d) >> "$LOG_FILE" 2>&1; then
+if ! (cd "$COMPOSE_DIR" && docker-compose up -d) >> "$UPDATE_LOG_FILE" 2>&1; then
   log "docker-compose up -d a échoué."
   rollback
   exit 1
@@ -412,7 +412,7 @@ wait "$LOG_TAIL_PID" 2>/dev/null
 RECENT_LOGS="$(docker logs "$CONTAINER_NAME" --since "${HEALTHCHECK_TIMEOUT}s" 2>&1 || true)"
 if echo "$RECENT_LOGS" | grep -Eiq "panic|Error running migrations|QueryError"; then
   log "Erreur détectée dans les logs du conteneur après mise à jour :"
-  echo "$RECENT_LOGS" | grep -Ei "panic|Error running migrations|QueryError" | tee -a "$LOG_FILE"
+  echo "$RECENT_LOGS" | grep -Ei "panic|Error running migrations|QueryError" | tee -a "$UPDATE_LOG_FILE"
   rollback
   exit 1
 fi

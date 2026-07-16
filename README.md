@@ -20,6 +20,8 @@ je me suis lancé dans la mise en place d'un gestionnaire de mot de passe on pre
   * [Mise en place du tunnel VPN](#mise-en-place-du-tunnel-vpn)
   * [Transfert de la base de données SQLITE3 vers MySQL](#transfert-de-la-base-de-donnees-sqlite3-vers-mysql)
   * [Mise en place du cluster entre les 2 bases de données](#mise-en-place-du-cluster-entre-les-2-bases-de-donnees)
+  * [Surveillance et correction automatique de la réplication](#surveillance-et-correction-automatique-de-la-réplication)
+  * [Récupération après une réplication cassée durablement (split-brain)](#récupération-après-une-réplication-cassée-durablement-split-brain)
   * [Configuration du VPS](#configuration-du-vps)
 * [Debug](#debug)  
   * [Root cause : colonnes uuid/id converties en TEXT au lieu de VARCHAR(36)](#root-cause--colonnes-uuidid-converties-en-text-au-lieu-de-varchar36)  
@@ -543,6 +545,163 @@ START SLAVE;
 SHOW SLAVE STATUS\G
 ```
 
+## Surveillance et correction automatique de la réplication
+
+Une fois le cluster en place, la réplication master↔master peut se casser silencieusement (coupure réseau, redémarrage de MariaDB, conflit sur une ligne). Comme c'est une base de mots de passe, on veut le savoir vite — sans qu'un script ne "corrige" tout seul un conflit de données au risque de faire diverger discrètement les 2 bases sans que personne ne s'en rende compte.
+
+[`scripts/check_replication.sh`](scripts/check_replication.sh) tourne en cron chaque jour sur `srv1` **et** `srv2` (chacun surveille son propre thread de réplication, et lit — en lecture seule — le statut de l'autre pour donner une vue complète en cas d'alerte) :
+
+- **Réplication saine** (threads actifs, retard sous le seuil) → rien ne se passe, une simple ligne de log.
+- **Thread arrêté sans erreur de données** (coupure réseau, arrêt manuel) → tentative de redémarrage automatique (`STOP SLAVE; START SLAVE;`, plusieurs essais), puis email indiquant que c'est corrigé — ou que ça a échoué et qu'une intervention est nécessaire.
+- **`SHOW SLAVE STATUS` ne retourne plus rien** (configuration perdue, ex. après un `RESET SLAVE ALL`) **mais `gtid_slave_pos` prouve que ce nœud avait déjà répliqué avant** → reconfiguration automatique (`CHANGE MASTER TO ... MASTER_USE_GTID=slave_pos; START SLAVE;`) en repartant exactement de la dernière position connue : aucun risque de trou ni de doublon de données.
+- **`gtid_slave_pos` vide** (réplication jamais initialisée, ou remise à zéro totale) → le script ne touche à rien et alerte par email pour une mise en place manuelle (voir section précédente) : c'est le seul cas où la position de reprise sûre n'est pas connue.
+- **Conflit de données** (`Last_SQL_Errno != 0`, ex. clé dupliquée) → **jamais de correction automatique**, alerte immédiate par email avec le détail de l'erreur SQL, pour investigation manuelle.
+
+### Prérequis SQL
+
+Sur `srv1` & `srv2` :
+
+```sql
+CREATE USER 'monitor'@'localhost' IDENTIFIED BY 'password';
+GRANT REPLICATION CLIENT, SUPER ON *.* TO 'monitor'@'localhost';
+
+CREATE USER 'monitor'@'127.0.0.1' IDENTIFIED BY 'password';
+GRANT REPLICATION CLIENT, SUPER ON *.* TO 'monitor'@'127.0.0.1';
+
+CREATE USER 'monitor'@'<IP VPN DU PAIR>' IDENTIFIED BY 'password';
+GRANT REPLICATION CLIENT ON *.* TO 'monitor'@'<IP VPN DU PAIR>';
+
+FLUSH PRIVILEGES;
+```
+
+Même nom d'utilisateur (`monitor`), mais plusieurs lignes avec des hôtes différents : MariaDB applique les privilèges de l'entrée la plus spécifique correspondant à l'hôte de connexion. Ainsi le `SUPER` (nécessaire pour `STOP SLAVE`/`START SLAVE`/`CHANGE MASTER TO`) n'est jamais accessible depuis le réseau, seulement en local (`localhost` **et** `127.0.0.1` : selon la configuration du client `mysql`, une connexion à `localhost` peut malgré tout passer par du TCP et être vue par le serveur comme `127.0.0.1` — les deux entrées évitent toute ambiguïté) — le pair ne peut que *lire* le statut, jamais agir dessus. (Sur MariaDB ≥ 10.5, `REPLICATION SLAVE ADMIN` peut remplacer `SUPER` pour se limiter au strict nécessaire.)
+
+### Installation
+
+`check_replication.sh` partage le même fichier `.env` que `update_vaultwarden.sh` (voir [Script de mise à jour semi-automatique](#script-de-mise-à-jour-semi-automatique-avec-backup-vérification-et-rollback) pour l'installation initiale du dossier) — s'il existe déjà, ne renseigner que les variables `NODE_NAME`, `MONITOR_USER`/`MONITOR_PASSWORD`, `PEER_HOST`/`PEER_PORT`, `REPL_USER`/`REPL_PASSWORD` en plus :
+
+```
+cd /opt/vaultwarden
+cp /chemin/vers/scripts/check_replication.sh .
+chmod +x check_replication.sh
+# .env déjà présent ? éditer directement : nano .env
+# sinon : cp /chemin/vers/scripts/.env.example ./.env puis nano .env
+```
+
+### Cron (sur `srv1` ET `srv2`)
+
+```
+crontab -e
+```
+```
+# m h  dom mon dow   command
+0 6 * * * /opt/vaultwarden/check_replication.sh >> /var/log/check_replication_cron.log 2>&1
+```
+
+/!\ Le fichier `.env` contient des identifiants et n'est jamais commité (voir `.gitignore`).
+
+/!\ Pour le moment, `ENABLE_MAIL=0` par défaut : les alertes ne sont écrites que dans `REPLICATION_LOG_FILE`, aucun email n'est envoyé. Passer `ENABLE_MAIL=1` (et renseigner `MAIL_TO`) activera l'envoi par email, mais nécessite un MTA local fonctionnel (`postfix`, `ssmtp`, `msmtp`...) pour que la commande `mail` envoie effectivement les alertes.
+
+## Récupération après une réplication cassée durablement (split-brain)
+
+Retour d'expérience d'un incident réel : la réplication master↔master s'est cassée silencieusement (voir [Debug](#debug) pour la cause réseau) et est restée cassée pendant un moment sans que ça soit détecté — avant la mise en place de `check_replication.sh` ci-dessus, il n'y avait aucun moyen de le savoir. Pendant cette période, les deux serveurs ont continué à fonctionner indépendamment (Vaultwarden tournait sur `bitwarden-slave`, servant tout le trafic, tandis que `bitwarden-master` avait son propre historique), ce qui a créé une divergence réelle de données entre les 2 bases — pas juste un retard à rattraper.
+
+Cette section documente la procédure complète suivie pour s'en sortir, dans l'ordre.
+
+### 1. Diagnostiquer la connectivité avant de blâmer la réplication elle-même
+
+Avant de supposer que la réplication est "cassée" au sens MariaDB, vérifier que les 2 serveurs peuvent seulement se joindre :
+- `ping` entre les 2 IP VPN (confirme le tunnel WireGuard, pas grand-chose de plus)
+- `nc -zv -w5 <IP pair> 3306` (le port MySQL répond-il vraiment ?)
+- `mysql -h <IP pair> -P 3306 -u <compte> -p -e "SELECT 1;"` avec le compte concerné
+
+Dans notre cas, le vrai blocage était un firewall (`ufw`) qui n'autorisait aucune connexion entrante sur le port 3306 depuis l'IP VPN du pair — aucune règle du tout pour ce sens, alors que la réplication (et donc `repli`) en a besoin dans les 2 sens. Voir aussi le piège `127.0.0.1` vs `localhost` documenté plus haut pour les comptes de supervision.
+
+### 2. Quantifier et réconcilier la divergence de données AVANT de toucher à la réplication
+
+Ne jamais supposer qu'un des 2 côtés est "la vérité" sans vérifier — même si un seul des 2 servait le trafic au moment de la panne, l'autre peut avoir des écritures plus anciennes jamais répliquées avant la coupure. [`scripts/reconcile_split_brain.sh`](scripts/reconcile_split_brain.sh) sert exactement à ça :
+
+1. Se connecte en lecture seule aux 2 serveurs (compte dédié `reconcile_ro`, voir prérequis SQL ci-dessous), importe un dump frais de chacun dans des bases temporaires locales (jamais dans une base nommée `vaultwarden`).
+2. Compare `users`, `folders`, `devices` (clé composite `uuid`+`user_uuid` — un même appareil/navigateur peut être associé à plusieurs comptes) et `ciphers` ligne par ligne : la version la plus récente (`updated_at`) gagne, dans le sens qui convient (ça peut être master→slave pour une ligne et slave→master pour une autre — ne jamais supposer qu'un sens unique s'applique à tout).
+3. Compare aussi `folders_ciphers` (association dossier/mot de passe, clé composite sans colonne de date : simple différence d'ensemble).
+4. Génère 2 fichiers SQL (`apply_to_master.sql`, `apply_to_slave.sql`) à relire avant toute exécution.
+
+**Prérequis SQL** (sur `srv1` & `srv2`, comme pour `monitor`) :
+```sql
+CREATE USER 'reconcile_ro'@'localhost' IDENTIFIED BY 'password';
+GRANT SELECT ON vaultwarden.* TO 'reconcile_ro'@'localhost';
+
+CREATE USER 'reconcile_ro'@'127.0.0.1' IDENTIFIED BY 'password';
+GRANT SELECT ON vaultwarden.* TO 'reconcile_ro'@'127.0.0.1';
+
+CREATE USER 'reconcile_ro'@'<IP VPN DU PAIR>' IDENTIFIED BY 'password';
+GRANT SELECT ON vaultwarden.* TO 'reconcile_ro'@'<IP VPN DU PAIR>';
+
+FLUSH PRIVILEGES;
+```
+
+**Installation et usage :** même fichier `.env` partagé que les 2 autres scripts (voir plus loin l'installation de `update_vaultwarden.sh`) — compléter avec `MASTER_HOST`/`SLAVE_HOST` (`127.0.0.1` pour le serveur LOCAL, celui d'où on lance, IP VPN pour l'autre) et les identifiants `reconcile_ro`/`vaultwarden` correspondants :
+```
+cp /chemin/vers/scripts/reconcile_split_brain.sh .
+chmod +x reconcile_split_brain.sh
+# .env déjà présent ? éditer directement : nano .env
+# sinon : cp /chemin/vers/scripts/.env.example ./.env puis nano .env
+
+./reconcile_split_brain.sh /tmp/reconcile_report        # génère les fichiers, rien n'est écrit
+# relire /tmp/reconcile_report/apply_to_*.sql, en particulier tout cas où
+# le sens de synchronisation d'une ligne surprend (voir known_errors.md)
+
+./reconcile_split_brain.sh /tmp/reconcile_report --apply   # applique réellement, après confirmation "oui"
+```
+
+`--apply` écrit le fichier du serveur **local** via les droits admin déjà présents, et celui du serveur **distant** via le compte applicatif `vaultwarden` existant (déjà `ALL PRIVILEGES` sur `vaultwarden.*`, déjà joignable sur le réseau — aucun nouveau grant nécessaire) : renseigner `MASTER_WRITE_USER`/`MASTER_WRITE_PASSWORD` et `SLAVE_WRITE_USER`/`SLAVE_WRITE_PASSWORD` dans `.env` avec les vrais identifiants Vaultwarden de chaque serveur.
+
+Outil **ponctuel** : pas de cron, à utiliser une fois par incident puis oublier.
+
+### 3. Corriger les éventuels problèmes de schéma avant de relancer la réplication
+
+Un schéma différent entre les 2 serveurs (ex: une colonne `CHAR` d'un côté, `VARCHAR` de l'autre — cf. `sso_users` dans [Debug](#debug)) bloque la réplication dès qu'un événement touche cette table. Vérifier et aligner **avant** l'étape suivante, sinon la réplication se recassera immédiatement.
+
+### 4. Repartir sur une réplication propre
+
+Une fois les données réconciliées (étape 2) et les schémas alignés (étape 3), repartir de zéro plutôt que d'essayer de réparer l'ancien lien — sur les **2 serveurs** :
+
+```sql
+STOP SLAVE;
+RESET SLAVE ALL;
+RESET MASTER;
+```
+
+/!\ `RESET MASTER` vide le binlog et la position GTID **générée** par ce serveur, mais **pas** `gtid_slave_pos` (la position qu'il a mémorisée comme "j'ai déjà rejoué jusqu'ici depuis l'autre serveur") — sans `RESET SLAVE ALL` en plus, la réplication repart sur une très vieille position et rejoue tout l'historique déjà appliqué des 2 côtés (voir `known_errors.md` pour les symptômes exacts rencontrés).
+
+Puis, sur chaque serveur, pointer vers l'autre (adapter les IP) :
+```sql
+CHANGE MASTER TO
+  MASTER_HOST='<IP VPN de l''autre serveur>',
+  MASTER_USER='repli',
+  MASTER_PASSWORD='<mot de passe repli>',
+  MASTER_PORT=3306,
+  MASTER_USE_GTID=slave_pos;
+START SLAVE;
+```
+
+Vérifier avec `SHOW SLAVE STATUS\G` sur les 2 : `Slave_IO_Running: Yes`, `Slave_SQL_Running: Yes`, `Last_Errno: 0`.
+
+### 5. Conflits bénins possibles après le redémarrage
+
+Même avec les données applicatives réconciliées, des tables internes à Vaultwarden/Diesel (ex: `__diesel_schema_migrations`, ou une `ALTER TABLE` de migration déjà appliquée des 2 côtés) peuvent encore déclencher une erreur de réplication (`Duplicate entry`, `Duplicate column name`) — ce n'est pas une divergence de données réelles, juste deux historiques de migrations identiques qui se recroisent. C'est le **seul** type de cas où sauter l'événement est acceptable (jamais sur `users`/`ciphers`/`folders`/`devices`) :
+```sql
+STOP SLAVE;
+SET GLOBAL sql_slave_skip_counter = 1;
+START SLAVE;
+```
+Revérifier `SHOW SLAVE STATUS\G` ; répéter si un nouveau conflit du même type apparaît.
+
+### 6. Après coup
+
+- Relancer `check_replication.sh` sur les 2 serveurs pour confirmer qu'il ne signale plus rien.
+- Faire un test de bout en bout (une écriture d'un côté, vérifier qu'elle apparaît de l'autre) avant de redonner confiance totale.
+- Relancer Vaultwarden sur le serveur resté éteint et le remettre dans la rotation Caddy.
 
 ## Configuration du VPS
 
@@ -770,6 +929,8 @@ cp /chemin/vers/scripts/.env.example ./.env
 nano .env   # renseigner COMPOSE_DIR, identifiants DB, chemins de backup, etc.
 chmod +x update_vaultwarden.sh
 ```
+
+Ce même fichier `.env` est partagé par `check_replication.sh` et `reconcile_split_brain.sh` (voir plus loin) : chaque script ne lit que les variables qui le concernent, un seul fichier à maintenir par serveur.
 
 **Utilisation :**
 
