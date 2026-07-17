@@ -34,9 +34,13 @@ L'infrastructure finale repose sur plusieurs composants :
 | MariaDB | Stockage des données applicatives |
 | WireGuard | Tunnel VPN sécurisé entre les différents sites |
 | Caddy | Reverse proxy et gestion automatique des certificats TLS |
-| VPS | Point d'entrée public et répartition du trafic |
+| VPS | Point d'entrée public et reverse proxy |
 
-L'architecture utilise deux instances Vaultwarden situées sur deux emplacements physiques différents afin d'améliorer la résilience :
+L'architecture utilise deux instances Vaultwarden situées sur deux emplacements physiques différents afin d'améliorer la résilience.
+
+Chaque serveur Vaultwarden possède sa propre instance MariaDB locale contenant une copie complète de la base de données.
+
+La synchronisation des données est assurée par une réplication **MariaDB master-master** entre les deux bases de données.
 
 ```text
                     Internet
@@ -50,12 +54,14 @@ L'architecture utilise deux instances Vaultwarden situées sur deux emplacements
         |                             |
   Vaultwarden A                 Vaultwarden B
         |                             |
-        +--------- MariaDB -----------+
-              Réplication
-              master-master
+    MariaDB A  <==============>  MariaDB B
+             Réplication
+             master-master
 ```
 
-Le VPS agit comme point d'entrée unique. Les serveurs Vaultwarden ne sont pas exposés directement sur Internet et communiquent uniquement via le tunnel VPN.
+Le VPS agit comme point d'entrée unique. Les serveurs Vaultwarden ne sont pas directement exposés sur Internet et les communications entre les différents composants passent par le tunnel VPN.
+
+La réplication MariaDB permet de maintenir les deux bases synchronisées, mais nécessite une surveillance afin d'éviter une divergence prolongée des données en cas d'incident.
 
 ## Environnement utilisé
 
