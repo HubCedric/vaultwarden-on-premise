@@ -68,79 +68,15 @@ L'infrastructure a été conçue pour fonctionner sur du matériel léger :
 
 ## Documentation
 
-La documentation complète est disponible dans le dossier [`docs`](./docs).
+La documentation détaillée est disponible dans le dossier [`docs`](./docs).
 
-### Architecture
-
-Présentation générale de l'infrastructure, des différents composants et des flux réseau.
-
-➡️ [`architecture.md`](./docs/architecture.md)
-
-### Installation
-
-Installation complète d'une instance Vaultwarden :
-
-- Raspberry Pi ;
-- Freebox OS ;
-- système Linux ;
-- Docker ;
-- HTTPS.
-
-➡️ [`installation.md`](./docs/installation.md)
-
-### Haute disponibilité
-
-Mise en place de la redondance :
-
-- WireGuard ;
-- migration SQLite vers MariaDB ;
-- réplication master-master ;
-- load balancing avec Caddy.
-
-➡️ [`haute-disponibilite.md`](./docs/haute-disponibilite.md)
-
-### Maintenance
-
-Procédures d'exploitation :
-
-- mises à jour Vaultwarden ;
-- scripts d'administration ;
-- supervision ;
-- sauvegardes.
-
-➡️ [`maintenance.md`](./docs/maintenance.md)
-
-### Sécurité
-
-Mesures de sécurisation :
-
-- certificats TLS ;
-- SSH ;
-- firewall ;
-- bonnes pratiques générales.
-
-➡️ [`securite.md`](./docs/securite.md)
-
-### Debug
-
-Retour d'expérience sur les incidents rencontrés :
-
-- problèmes de migration Vaultwarden ;
-- incompatibilités MariaDB ;
-- erreurs de réplication.
-
-➡️ [`debug.md`](./docs/debug.md)
-
-### Restauration
-
-Procédures de récupération après incident :
-
-- perte d'un serveur ;
-- réplication cassée ;
-- split-brain MariaDB ;
-- remise en cohérence des données.
-
-➡️ [`restauration.md`](./docs/restauration.md)
+- [Architecture](./docs/architecture.md)
+- [Installation](./docs/installation.md)
+- [Haute disponibilité](./docs/haute-disponibilite.md)
+- [Maintenance](./docs/maintenance.md)
+- [Sécurité](./docs/securite.md)
+- [Debug](./docs/debug.md)
+- [Restauration](./docs/restauration.md)
 
 ## Scripts
 
