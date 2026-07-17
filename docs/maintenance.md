@@ -8,7 +8,7 @@ Il couvre en particulier :
 
 - la maintenance du certificat TLS ;
 - la mise à jour de Vaultwarden ;
-- l'utilisation du script `updatevaultwarden.sh` ;
+- l'utilisation du script `update_vaultwarden.sh` ;
 - la maintenance système de base ;
 - les ajustements autour de SSH et d'OpenSSH.
 
@@ -101,13 +101,13 @@ Conserver également une copie de :
 - la configuration du reverse proxy ou du VPS ;
 - le fichier `.env` utilisé par les scripts du dépôt.
 
-Le fichier `.env` contient des identifiants sensibles. Il ne doit jamais être versionné dans le dépôt [file:1].
+Le fichier `.env` contient des identifiants sensibles. Il ne doit jamais être versionné dans le dépôt.
 
 ---
 
 ## Renouvellement du certificat
 
-Dans la documentation initiale, le certificat était obtenu avec `certbot`, puis copié dans un emplacement utilisé par le conteneur Vaultwarden [file:1].
+Dans la documentation initiale, le certificat était obtenu avec `certbot`, puis copié dans un emplacement utilisé par le conteneur Vaultwarden.
 
 Le renouvellement du certificat fait donc partie des opérations de maintenance régulières.
 
@@ -155,10 +155,10 @@ curl -vk https://127.0.0.1/alive
 
 ### Points d'attention
 
-Lors du retour d'expérience initial, deux remarques importantes ressortent [file:1] :
+Lors du retour d'expérience initial, deux remarques importantes ressortent :
 
 - il peut arriver que Let's Encrypt impose un délai avant une nouvelle émission en cas de tentatives répétées ;
-- certains réseaux d'entreprise peuvent être plus stricts avec certains certificats ou chaînes de confiance, même si Let's Encrypt reste généralement parfaitement adapté à un usage domestique [file:1].
+- certains réseaux d'entreprise peuvent être plus stricts avec certains certificats ou chaînes de confiance, même si Let's Encrypt reste généralement parfaitement adapté à un usage domestique.
 
 ---
 
@@ -221,11 +221,11 @@ SHOW SLAVE STATUS\G
 
 ---
 
-## Script `updatevaultwarden.sh`
+## Script `update_vaultwarden.sh`
 
-Le dépôt initial prévoit un script `updatevaultwarden.sh` destiné à industrialiser la maintenance applicative. Le README le présente comme un script de mise à jour semi-automatique avec sauvegarde, vérification et rollback [file:1].
+Le dépôt initial prévoit un script `update_vaultwarden.sh` destiné à industrialiser la maintenance applicative. Le README le présente comme un script de mise à jour semi-automatique avec sauvegarde, vérification et rollback.
 
-Ce script constitue le point central de la maintenance applicative quand on veut éviter une procédure manuelle trop fragile [file:1].
+Ce script constitue le point central de la maintenance applicative quand on veut éviter une procédure manuelle trop fragile.
 
 ### Rôle du script
 
@@ -249,19 +249,19 @@ Par rapport à une mise à jour manuelle, cette approche permet de mieux cadrer 
 
 ### Fichier `.env` partagé
 
-Le README précise que `updatevaultwarden.sh` partage le même fichier `.env` que d'autres scripts du dépôt, notamment :
+Le README précise que `update_vaultwarden.sh` partage le même fichier `.env` que d'autres scripts du dépôt, notamment :
 
-- `checkreplication.sh`
-- `reconcilesplitbrain.sh`
+- `check_replication.sh`
+- `reconcile_split_brain.sh`
 
-Ce point est important pour l'exploitation, car le fichier `.env` devient le centre de configuration de plusieurs opérations de maintenance et de reprise [file:1].
+Ce point est important pour l'exploitation, car le fichier `.env` devient le centre de configuration de plusieurs opérations de maintenance et de reprise.
 
 ### Installation typique
 
 ```bash
 cd /opt/vaultwarden
-cp chemin/vers/scripts/updatevaultwarden.sh .
-chmod +x updatevaultwarden.sh
+cp chemin/vers/scripts/update_vaultwarden.sh .
+chmod +x update_vaultwarden.sh
 ```
 
 Si le fichier `.env` existe déjà :
@@ -280,7 +280,7 @@ nano .env
 ### Exécution
 
 ```bash
-./updatevaultwarden.sh
+./update_vaultwarden.sh
 ```
 
 Le comportement exact dépend des variables définies dans `.env` et de la logique du script réellement présente dans le dépôt.
@@ -370,9 +370,9 @@ Adapter la vérification WireGuard selon l'architecture réellement utilisée.
 
 ## Upgrade OpenSSH
 
-Le README initial mentionne explicitement l'upgrade d'OpenSSH comme partie intégrante de la maintenance [file:1].
+Le README initial mentionne explicitement l'upgrade d'OpenSSH comme partie intégrante de la maintenance.
 
-La logique est simple : SSH est un point d'administration critique. Il doit être maintenu à jour pour des raisons de sécurité et de compatibilité [file:1].
+La logique est simple : SSH est un point d'administration critique. Il doit être maintenu à jour pour des raisons de sécurité et de compatibilité.
 
 ### Mise à jour via le système
 
@@ -406,7 +406,7 @@ En cas d'erreur de configuration, cela évite de se couper complètement l'accè
 
 ## Changer le port par défaut de SSH
 
-Le README initial mentionne également le changement du port par défaut de SSH comme une opération de maintenance et de durcissement classique [file:1].
+Le README initial mentionne également le changement du port par défaut de SSH comme une opération de maintenance et de durcissement classique.
 
 Cela ne remplace pas une vraie politique de sécurité, mais cela permet de réduire une partie du bruit automatisé sur le port standard.
 
@@ -548,10 +548,10 @@ La maintenance d'un gestionnaire de mots de passe ne doit jamais se limiter à "
 | --- | --- | --- |
 | Renouvellement du certificat | Maintenir l'accès TLS valide | `certbot certificates`, test HTTPS |
 | Mise à jour de Vaultwarden | Mettre à jour l'application | logs Docker, accès `/alive` |
-| Exécution de `updatevaultwarden.sh` | Industrialiser update, backup et rollback | contrôle du script, logs, état final |
+| Exécution de `update_vaultwarden.sh` | Industrialiser update, backup et rollback | contrôle du script, logs, état final |
 | Mise à jour système | Maintenir le socle OS | état des services après reboot |
 | Upgrade OpenSSH | Maintenir l'accès d'administration | `ssh -V`, `systemctl status ssh` |
 | Changement de port SSH | Réduire l'exposition du port standard | test de connexion sur le nouveau port |
 | Vérification de la réplication | Garantir la cohérence entre nœuds | `SHOW SLAVE STATUS\G` |
 
-Une maintenance correcte repose sur trois principes : préparer, vérifier, et pouvoir revenir en arrière. Dans cette architecture, la cohérence de la base et de la réplication est aussi importante que l'état du conteneur applicatif [file:1].
+Une maintenance correcte repose sur trois principes : préparer, vérifier, et pouvoir revenir en arrière. Dans cette architecture, la cohérence de la base et de la réplication est aussi importante que l'état du conteneur applicatif.

@@ -20,9 +20,9 @@ L'objectif est d'obtenir une première instance fonctionnelle, propre et exploit
 
 ## Vue d'ensemble
 
-L'installation initiale a été pensée pour fonctionner sur des plateformes légères de type ARM, notamment un Raspberry Pi ou une VM hébergée sur Freebox OS [file:1].
+L'installation initiale a été pensée pour fonctionner sur des plateformes légères de type ARM, notamment un Raspberry Pi ou une VM hébergée sur Freebox OS.
 
-Le projet part du principe qu'une solution comme Vaultwarden est bien adaptée à ce type de matériel, là où l'implémentation Bitwarden officielle est plus contraignante sur des plateformes comme Raspberry Pi ou Freebox [file:1].
+Le projet part du principe qu'une solution comme Vaultwarden est bien adaptée à ce type de matériel, là où l'implémentation Bitwarden officielle est plus contraignante sur des plateformes comme Raspberry Pi ou Freebox.
 
 Deux scénarios d'installation sont donc envisagés :
 
@@ -52,7 +52,7 @@ Avant de commencer, il faut disposer :
 - d'un accès administrateur sur la machine ;
 - d'une architecture compatible avec Docker.
 
-Le README initial mentionne également l'intérêt d'un accès IPv6 pour publier le service sans devoir ouvrir inutilement des ports sur le routeur, ce qui simplifie souvent l'exposition réseau et limite certains problèmes de sécurité [file:1].
+Le README initial mentionne également l'intérêt d'un accès IPv6 pour publier le service sans devoir ouvrir inutilement des ports sur le routeur, ce qui simplifie souvent l'exposition réseau et limite certains problèmes de sécurité.
 
 ---
 
@@ -60,7 +60,7 @@ Le README initial mentionne également l'intérêt d'un accès IPv6 pour publier
 
 ### Matériel utilisé
 
-Le scénario Raspberry Pi présenté dans la documentation initiale repose sur les éléments suivants [file:1] :
+Le scénario Raspberry Pi présenté dans la documentation initiale repose sur les éléments suivants :
 
 - un Raspberry Pi ;
 - une alimentation ;
@@ -69,11 +69,11 @@ Le scénario Raspberry Pi présenté dans la documentation initiale repose sur l
 - éventuellement un shield SSD pour Raspberry Pi ;
 - un accès réseau, idéalement filaire.
 
-Le retour d'expérience initial recommande plutôt le SSD qu'une carte SD, pour des raisons de fiabilité dans le temps [file:1].
+Le retour d'expérience initial recommande plutôt le SSD qu'une carte SD, pour des raisons de fiabilité dans le temps.
 
 ### Installation du système
 
-L'installation de l'OS se fait avec Raspberry Pi Imager [file:1].
+L'installation de l'OS se fait avec Raspberry Pi Imager.
 
 Choix recommandés :
 
@@ -81,9 +81,9 @@ Choix recommandés :
 - `Raspberry Pi OS Lite 64-bit` ;
 - support de stockage adapté ;
 - définition d'un utilisateur et d'un mot de passe ;
-- activation de SSH dès la phase de préparation [file:1].
+- activation de SSH dès la phase de préparation.
 
-Le Wi-Fi reste possible, mais la documentation d'origine privilégie clairement une connexion filaire pour plus de stabilité [file:1].
+Le Wi-Fi reste possible, mais la documentation d'origine privilégie clairement une connexion filaire pour plus de stabilité.
 
 ### Démarrage initial
 
@@ -92,7 +92,7 @@ Une fois l'image écrite :
 - brancher le support de stockage ;
 - relier le Raspberry au réseau ;
 - l'alimenter ;
-- récupérer son adresse IP depuis l'interface du routeur ou de la box [file:1].
+- récupérer son adresse IP depuis l'interface du routeur ou de la box.
 
 ---
 
@@ -100,9 +100,9 @@ Une fois l'image écrite :
 
 ### Matériel et contexte
 
-La documentation initiale décrit aussi une installation dans une VM hébergée sur Freebox OS, avec par exemple un SSD NVMe dans une Freebox Delta ou Ultra [file:1].
+La documentation initiale décrit aussi une installation dans une VM hébergée sur Freebox OS, avec par exemple un SSD NVMe dans une Freebox Delta ou Ultra.
 
-Ce scénario permet de faire tourner Vaultwarden sur une VM légère, avec peu de ressources, tout en gardant une installation simple à domicile [file:1].
+Ce scénario permet de faire tourner Vaultwarden sur une VM légère, avec peu de ressources, tout en gardant une installation simple à domicile.
 
 ### Création de la VM
 
@@ -114,9 +114,9 @@ Depuis l'interface Freebox OS, il faut :
 - allouer 512 Mo de RAM ;
 - choisir une distribution Linux ;
 - définir un utilisateur et un mot de passe ;
-- allouer un disque virtuel d'environ 15 Go [file:1].
+- allouer un disque virtuel d'environ 15 Go.
 
-Le README précise que cette configuration reste largement suffisante pour un usage personnel avec peu d'utilisateurs et une volumétrie faible [file:1].
+Le README précise que cette configuration reste largement suffisante pour un usage personnel avec peu d'utilisateurs et une volumétrie faible.
 
 ### Démarrage
 
@@ -124,13 +124,13 @@ Une fois la VM créée :
 
 - la démarrer ;
 - relever son adresse IP depuis l'interface Freebox OS ;
-- poursuivre ensuite l'installation comme pour une machine Linux classique [file:1].
+- poursuivre ensuite l'installation comme pour une machine Linux classique.
 
 ---
 
 ## Préparation du système
 
-Une fois connecté en SSH sur le serveur, la première étape consiste à mettre le système à jour [file:1].
+Une fois connecté en SSH sur le serveur, la première étape consiste à mettre le système à jour.
 
 Connexion :
 
@@ -151,13 +151,13 @@ Redémarrage :
 sudo reboot
 ```
 
-Cette étape permet de repartir sur une base propre avant d'installer Docker et les autres composants [file:1].
+Cette étape permet de repartir sur une base propre avant d'installer Docker et les autres composants.
 
 ---
 
 ## Installation de Docker
 
-Vaultwarden repose ici sur un conteneur Docker. La documentation initiale installe donc Docker ainsi que `docker-compose` via les paquets système [file:1].
+Vaultwarden repose ici sur un conteneur Docker. La documentation initiale installe donc Docker ainsi que `docker-compose` via les paquets système.
 
 Installation :
 
@@ -171,7 +171,7 @@ Vérification :
 sudo docker ps
 ```
 
-Si la commande répond correctement, la base d'exécution des conteneurs est prête [file:1].
+Si la commande répond correctement, la base d'exécution des conteneurs est prête.
 
 ---
 
@@ -187,7 +187,7 @@ sudo docker pull vaultwarden/server:latest
 
 ### Premier lancement en HTTP
 
-Le README initial propose un premier démarrage en HTTP, uniquement pour valider rapidement que le service démarre correctement avant d'ajouter TLS [file:1].
+Le README initial propose un premier démarrage en HTTP, uniquement pour valider rapidement que le service démarre correctement avant d'ajouter TLS.
 
 Exemple :
 
@@ -205,11 +205,11 @@ Vérification :
 sudo docker ps
 ```
 
-À ce stade, l'objectif est simplement de vérifier que l'interface se lance bien localement et que le conteneur reste en état `Up` [file:1].
+À ce stade, l'objectif est simplement de vérifier que l'interface se lance bien localement et que le conteneur reste en état `Up`.
 
 ### Remarque
 
-Ce démarrage HTTP est un test temporaire. Il ne constitue pas une configuration de production durable, surtout pour un service aussi sensible qu'un gestionnaire de mots de passe [file:1].
+Ce démarrage HTTP est un test temporaire. Il ne constitue pas une configuration de production durable, surtout pour un service aussi sensible qu'un gestionnaire de mots de passe.
 
 ---
 
@@ -217,11 +217,11 @@ Ce démarrage HTTP est un test temporaire. Il ne constitue pas une configuration
 
 ### Principe
 
-Une fois le service validé, il faut mettre en place HTTPS avec un certificat. Le README initial s'appuie sur Let's Encrypt via `certbot` [file:1].
+Une fois le service validé, il faut mettre en place HTTPS avec un certificat. Le README initial s'appuie sur Let's Encrypt via `certbot`.
 
 ### Arrêter le conteneur temporaire
 
-Avant de générer le certificat, l'ancienne instance HTTP est supprimée [file:1].
+Avant de générer le certificat, l'ancienne instance HTTP est supprimée.
 
 ```bash
 sudo docker stop vaultwarden
@@ -245,9 +245,9 @@ Le processus demande ensuite :
 - une méthode de validation ;
 - une adresse email ;
 - l'acceptation des conditions ;
-- le ou les noms de domaine à certifier [file:1].
+- le ou les noms de domaine à certifier.
 
-Une fois l'opération terminée, le certificat et la clé privée sont générés dans `/etc/letsencrypt/live/` [file:1].
+Une fois l'opération terminée, le certificat et la clé privée sont générés dans `/etc/letsencrypt/live/`.
 
 ### Préparer les fichiers TLS pour Vaultwarden
 
@@ -284,11 +284,11 @@ Vérification :
 sudo docker ps
 ```
 
-À partir de là, l'accès doit se faire via le nom de domaine configuré en HTTPS [file:1].
+À partir de là, l'accès doit se faire via le nom de domaine configuré en HTTPS.
 
 ### Limites signalées dans le README
 
-La documentation initiale mentionne deux points pratiques à garder en tête [file:1] :
+La documentation initiale mentionne deux points pratiques à garder en tête :
 
 - il peut arriver qu'il faille attendre avant de regénérer un certificat Let's Encrypt en cas de quota temporaire ;
 - certains environnements professionnels très filtrés peuvent poser davantage de problèmes avec certains certificats publics que les réseaux domestiques classiques.
@@ -299,9 +299,9 @@ La documentation initiale mentionne deux points pratiques à garder en tête [fi
 
 ### Pourquoi
 
-Dans la version initiale non redondée, un redémarrage de la machine ne relance pas automatiquement le conteneur avec tous ses paramètres si aucun mécanisme n'a été prévu [file:1].
+Dans la version initiale non redondée, un redémarrage de la machine ne relance pas automatiquement le conteneur avec tous ses paramètres si aucun mécanisme n'a été prévu.
 
-Le README propose donc une solution simple via la crontab root [file:1].
+Le README propose donc une solution simple via la crontab root.
 
 ### Éditer la crontab root
 
@@ -318,11 +318,11 @@ Exemple :
 @reboot docker rm -f vaultwarden ; docker run -d --name vaultwarden -e ROCKET_TLS='{certs="/ssl/certs.pem",key="/ssl/key.pem"}' -v /ssl/keys:/ssl -v vw-data:/data -p 443:80 vaultwarden/server:latest
 ```
 
-Cette logique reprend l'idée décrite dans le README : supprimer au besoin l'ancien conteneur nommé `vaultwarden`, puis le recréer proprement au redémarrage avec les bons paramètres [file:1].
+Cette logique reprend l'idée décrite dans le README : supprimer au besoin l'ancien conteneur nommé `vaultwarden`, puis le recréer proprement au redémarrage avec les bons paramètres.
 
 ### Important
 
-Cette solution est adaptée à une instance simple. Le README précise qu'à partir du moment où une architecture redondée est mise en place, cette logique n'est plus forcément pertinente et certaines configurations initiales doivent être revues [file:1].
+Cette solution est adaptée à une instance simple. Le README précise qu'à partir du moment où une architecture redondée est mise en place, cette logique n'est plus forcément pertinente et certaines configurations initiales doivent être revues.
 
 ---
 
@@ -330,14 +330,14 @@ Cette solution est adaptée à une instance simple. Le README précise qu'à par
 
 ### Pourquoi migrer
 
-Par défaut, Vaultwarden utilise SQLite [file:1].
+Par défaut, Vaultwarden utilise SQLite.
 
 Le README explique cependant qu'une base MariaDB devient préférable dès qu'on veut :
 
 - répliquer les données ;
 - préparer une redondance ;
 - sortir d'une logique mono-fichier ;
-- mieux intégrer la base dans une architecture de haute disponibilité [file:1].
+- mieux intégrer la base dans une architecture de haute disponibilité.
 
 ### Installer les dépendances
 
@@ -351,14 +351,14 @@ sudo python3 -m pip install sqlite3-to-mysql --break-system-packages
 Depuis le répertoire contenant `db.sqlite3` :
 
 ```bash
-sqlite3mysql -f db.sqlite3 -d vaultwarden -u vaultwarden -p -X -i -d IGNORE
+sqlite3mysql -f db.sqlite3 -d vaultwarden -u vaultwarden -p -X -i IGNORE
 ```
 
-Le README initial indique que cette commande peut être lancée sur un seul serveur dans le cas où la réplication MariaDB prendra ensuite le relais pour propager les données [file:1].
+Le README initial indique que cette commande peut être lancée sur un seul serveur dans le cas où la réplication MariaDB prendra ensuite le relais pour propager les données.
 
 ### Point d'attention
 
-Cette migration ne suffit pas à elle seule pour obtenir une architecture redondée. Elle prépare simplement le passage vers MariaDB, qui sera ensuite utilisée dans la configuration de cluster et de réplication décrite dans les autres documents [file:1].
+Cette migration ne suffit pas à elle seule pour obtenir une architecture redondée. Elle prépare simplement le passage vers MariaDB, qui sera ensuite utilisée dans la configuration de cluster et de réplication décrite dans les autres documents.
 
 ---
 
@@ -426,4 +426,4 @@ Cette installation constitue la base de travail avant d'aborder :
 | Cron de redémarrage | relancer simplement le conteneur au boot |
 | Migration SQLite vers MariaDB | préparer l'évolution vers une architecture répliquée |
 
-L'installation initiale reste volontairement simple. Elle permet d'obtenir rapidement une instance Vaultwarden fonctionnelle, avant d'introduire les mécanismes plus avancés de redondance, de supervision et de reprise [file:1].
+L'installation initiale reste volontairement simple. Elle permet d'obtenir rapidement une instance Vaultwarden fonctionnelle, avant d'introduire les mécanismes plus avancés de redondance, de supervision et de reprise.

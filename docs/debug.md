@@ -88,11 +88,11 @@ Ces contrôles permettent de distinguer rapidement :
 
 ## Incident réel : réplication cassée silencieusement
 
-Un incident rencontré en production a montré qu'une réplication master-master peut se casser sans symptôme immédiat côté application [file:1].
+Un incident rencontré en production a montré qu'une réplication master-master peut se casser sans symptôme immédiat côté application.
 
-Dans le cas observé, les deux serveurs ont continué à fonctionner alors que la réplication était rompue, ce qui a provoqué une divergence réelle des données entre les deux bases, et pas seulement un retard de synchronisation [file:1].
+Dans le cas observé, les deux serveurs ont continué à fonctionner alors que la réplication était rompue, ce qui a provoqué une divergence réelle des données entre les deux bases, et pas seulement un retard de synchronisation.
 
-La cause initiale n'était pas MariaDB elle-même, mais un problème de connectivité réseau : un pare-feu `ufw` n'autorisait pas les connexions entrantes sur le port 3306 depuis l'IP VPN du pair dans un sens, alors que la réplication avait besoin d'un accès bidirectionnel [file:1].
+La cause initiale n'était pas MariaDB elle-même, mais un problème de connectivité réseau : un pare-feu `ufw` n'autorisait pas les connexions entrantes sur le port 3306 depuis l'IP VPN du pair dans un sens, alors que la réplication avait besoin d'un accès bidirectionnel.
 
 ### Vérifications recommandées
 
@@ -115,15 +115,15 @@ Selon la façon dont le client `mysql` se connecte, une connexion locale peut ê
 - `localhost` ;
 - ou `127.0.0.1`.
 
-Pour éviter toute ambiguïté, les comptes techniques utilisés par les scripts doivent être créés explicitement pour les deux cas lorsque nécessaire [file:1].
+Pour éviter toute ambiguïté, les comptes techniques utilisés par les scripts doivent être créés explicitement pour les deux cas lorsque nécessaire.
 
 ---
 
 ## Root cause : colonnes `uuid` / `id` converties en `TEXT` au lieu de `VARCHAR(36)`
 
-Un problème rencontré lors des manipulations autour de la base a conduit à une incohérence de schéma : certaines colonnes `uuid` ou `id` ont été converties en `TEXT` alors qu'elles devaient rester en `VARCHAR(36)` [file:1].
+Un problème rencontré lors des manipulations autour de la base a conduit à une incohérence de schéma : certaines colonnes `uuid` ou `id` ont été converties en `TEXT` alors qu'elles devaient rester en `VARCHAR(36)`.
 
-Cette différence de type peut sembler bénigne, mais elle est en réalité bloquante pour la réplication dès qu'un événement SQL touche la table concernée [file:1].
+Cette différence de type peut sembler bénigne, mais elle est en réalité bloquante pour la réplication dès qu'un événement SQL touche la table concernée.
 
 ### Pourquoi c'est un problème
 
@@ -183,7 +183,7 @@ L'objectif est de comparer les deux serveurs et de confirmer que les colonnes se
 
 ## Corriger un schéma incohérent
 
-Si une colonne `uuid` ou `id` a été transformée en `TEXT` au lieu de `VARCHAR(36)`, il faut réaligner le schéma avant toute tentative de reprise durable de la réplication [file:1].
+Si une colonne `uuid` ou `id` a été transformée en `TEXT` au lieu de `VARCHAR(36)`, il faut réaligner le schéma avant toute tentative de reprise durable de la réplication.
 
 ### Précautions
 
@@ -233,7 +233,7 @@ Il faut d'abord :
 
 ## Vérifier les différences de schéma entre les deux serveurs
 
-Lorsqu'une réplication casse de manière répétée sur une table précise, il faut comparer explicitement le schéma des deux côtés [file:1].
+Lorsqu'une réplication casse de manière répétée sur une table précise, il faut comparer explicitement le schéma des deux côtés.
 
 ### Méthode
 
@@ -264,7 +264,7 @@ Une réplication ne doit jamais être relancée durablement tant qu'un doute exi
 
 ## Erreurs liées aux migrations déjà appliquées
 
-Même après réconciliation des données, certaines erreurs peuvent encore survenir lors de la reprise de la réplication, notamment si les deux nœuds ont déjà appliqué des migrations identiques dans des historiques différents [file:1].
+Même après réconciliation des données, certaines erreurs peuvent encore survenir lors de la reprise de la réplication, notamment si les deux nœuds ont déjà appliqué des migrations identiques dans des historiques différents.
 
 Les symptômes typiques sont :
 
@@ -279,7 +279,7 @@ Ces erreurs peuvent concerner :
 
 ### Cas bénins possibles
 
-Dans certains cas précis, il peut être acceptable de sauter un événement de réplication, mais uniquement si l'analyse montre qu'il ne touche pas à des données métier réelles [file:1].
+Dans certains cas précis, il peut être acceptable de sauter un événement de réplication, mais uniquement si l'analyse montre qu'il ne touche pas à des données métier réelles.
 
 Exemple :
 
@@ -298,13 +298,13 @@ Cette méthode ne doit jamais être utilisée à l'aveugle sur des tables comme 
 - `folders`
 - `devices`
 
-Elle n'est acceptable que lorsque le conflit est clairement identifié comme bénin, par exemple sur une migration déjà appliquée ou une table interne de suivi [file:1].
+Elle n'est acceptable que lorsque le conflit est clairement identifié comme bénin, par exemple sur une migration déjà appliquée ou une table interne de suivi.
 
 ---
 
 ## Cas de figure : `SHOW SLAVE STATUS` ne retourne rien
 
-Si `SHOW SLAVE STATUS\G` ne retourne aucune ligne, cela signifie généralement que la configuration de réplication n'existe plus sur le nœud concerné [file:1].
+Si `SHOW SLAVE STATUS\G` ne retourne aucune ligne, cela signifie généralement que la configuration de réplication n'existe plus sur le nœud concerné.
 
 Cela peut arriver par exemple après un `RESET SLAVE ALL`.
 
@@ -315,7 +315,7 @@ Deux cas sont possibles :
 - le nœud avait déjà été répliqué auparavant et possède encore une position de reprise exploitable ;
 - le nœud n'a plus aucune information exploitable de reprise.
 
-Dans le premier cas, une reconfiguration contrôlée via GTID peut suffire [file:1].
+Dans le premier cas, une reconfiguration contrôlée via GTID peut suffire.
 
 ### Exemple
 
@@ -331,13 +331,13 @@ START SLAVE;
 
 ### Cas où il ne faut pas automatiser
 
-Si la position GTID exploitable n'est pas connue, il ne faut pas tenter une reprise automatique. Il faut repartir sur une procédure de reconstruction propre [file:1].
+Si la position GTID exploitable n'est pas connue, il ne faut pas tenter une reprise automatique. Il faut repartir sur une procédure de reconstruction propre.
 
 ---
 
 ## Repartir sur une réplication propre après incident
 
-Lorsque les données ont été réconciliées et que les schémas sont alignés, il est souvent préférable de repartir de zéro plutôt que d'essayer de réparer un lien de réplication devenu incohérent [file:1].
+Lorsque les données ont été réconciliées et que les schémas sont alignés, il est souvent préférable de repartir de zéro plutôt que d'essayer de réparer un lien de réplication devenu incohérent.
 
 ### Réinitialisation
 
@@ -377,13 +377,13 @@ Contrôler au minimum :
 
 ### Point d'attention
 
-Le retour d'expérience initial montre qu'après certaines manipulations, repartir proprement est plus fiable qu'une tentative de réparation partielle, notamment lorsque l'historique GTID et l'ancien lien de réplication ne sont plus totalement maîtrisés [file:1].
+Le retour d'expérience initial montre qu'après certaines manipulations, repartir proprement est plus fiable qu'une tentative de réparation partielle, notamment lorsque l'historique GTID et l'ancien lien de réplication ne sont plus totalement maîtrisés.
 
 ---
 
 ## Si besoin de downgrade de version
 
-Dans certains cas, un problème peut provenir d'une mise à jour récente de Vaultwarden, d'un changement de schéma ou d'une incompatibilité apparue après migration. Le README initial mentionne explicitement qu'un downgrade peut faire partie des pistes de debug [file:1].
+Dans certains cas, un problème peut provenir d'une mise à jour récente de Vaultwarden, d'un changement de schéma ou d'une incompatibilité apparue après migration. Le README initial mentionne explicitement qu'un downgrade peut faire partie des pistes de debug.
 
 Le downgrade ne doit cependant pas être considéré comme une première réponse. Il faut d'abord vérifier :
 
@@ -511,4 +511,4 @@ Les incidents les plus importants rencontrés sur cette infrastructure tournent 
 | Erreur sur une table spécifique | Schéma divergent entre les nœuds | Comparer `SHOW CREATE TABLE` des deux côtés |
 | Incident après mise à jour | Migration, incompatibilité, changement de version | Lire les logs, vérifier le schéma, envisager un downgrade si nécessaire |
 
-Le point clé à retenir est qu'un problème de réplication n'est pas toujours un problème de données. Il peut venir d'un simple blocage réseau, mais tant qu'il n'est pas diagnostiqué rapidement, il finit par produire une vraie divergence applicative [file:1].
+Le point clé à retenir est qu'un problème de réplication n'est pas toujours un problème de données. Il peut venir d'un simple blocage réseau, mais tant qu'il n'est pas diagnostiqué rapidement, il finit par produire une vraie divergence applicative.

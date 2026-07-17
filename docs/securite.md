@@ -43,9 +43,9 @@ Les principes à respecter sont les suivants :
 
 ## Réduire l'exposition réseau
 
-L'un des choix structurants du projet consiste à éviter autant que possible l'ouverture de ports inutiles vers Internet [file:1].
+L'un des choix structurants du projet consiste à éviter autant que possible l'ouverture de ports inutiles vers Internet.
 
-Le README initial souligne explicitement l'intérêt d'une architecture basée sur IPv6 et sur des échanges ciblés, afin d'éviter les expositions réseau superflues souvent sources de problèmes de sécurité [file:1].
+Le README initial souligne explicitement l'intérêt d'une architecture basée sur IPv6 et sur des échanges ciblés, afin d'éviter les expositions réseau superflues souvent sources de problèmes de sécurité.
 
 ### Objectif
 
@@ -67,7 +67,7 @@ Un port ouvert doit toujours répondre à une nécessité d'exploitation clairem
 
 ## Chiffrement des accès HTTPS
 
-Le service Vaultwarden ne doit pas être exploité durablement en HTTP. Le README initial présente bien une phase de test temporaire en HTTP, mais la mise en service réelle repose ensuite sur HTTPS avec certificat [file:1].
+Le service Vaultwarden ne doit pas être exploité durablement en HTTP. Le README initial présente bien une phase de test temporaire en HTTP, mais la mise en service réelle repose ensuite sur HTTPS avec certificat.
 
 ### Pourquoi
 
@@ -80,7 +80,7 @@ Le chiffrement TLS protège :
 
 ### Mise en place avec Let's Encrypt
 
-Le README initial décrit l'utilisation de `certbot` pour obtenir un certificat Let's Encrypt [file:1].
+Le README initial décrit l'utilisation de `certbot` pour obtenir un certificat Let's Encrypt.
 
 Exemple :
 
@@ -89,7 +89,7 @@ sudo apt install certbot -y
 sudo certbot certonly
 ```
 
-Une fois les certificats obtenus, ils sont copiés dans un emplacement utilisé par le conteneur [file:1].
+Une fois les certificats obtenus, ils sont copiés dans un emplacement utilisé par le conteneur.
 
 Exemple :
 
@@ -98,20 +98,20 @@ sudo cp /etc/letsencrypt/live/fullchain.pem /ssl/keys/certs.pem
 sudo cp /etc/letsencrypt/live/privkey.pem /ssl/keys/key.pem
 ```
 
-Puis Vaultwarden est redémarré avec la configuration TLS adaptée [file:1].
+Puis Vaultwarden est redémarré avec la configuration TLS adaptée.
 
 ### Points d'attention
 
-Le retour d'expérience initial mentionne deux limites utiles à garder en tête [file:1] :
+Le retour d'expérience initial mentionne deux limites utiles à garder en tête :
 
 - Let's Encrypt peut imposer des délais en cas de génération répétée ;
-- certains environnements d'entreprise très restrictifs peuvent être plus sensibles à certaines chaînes de certificats, même si Let's Encrypt reste généralement très adapté à un usage domestique [file:1].
+- certains environnements d'entreprise très restrictifs peuvent être plus sensibles à certaines chaînes de certificats, même si Let's Encrypt reste généralement très adapté à un usage domestique.
 
 ---
 
 ## Sécurisation des échanges entre nœuds
 
-Dans l'architecture redondée décrite dans le README initial, les serveurs ne doivent pas échanger leurs données en clair sur le réseau. Le choix retenu est l'utilisation d'un tunnel WireGuard entre les machines [file:1].
+Dans l'architecture redondée décrite dans le README initial, les serveurs ne doivent pas échanger leurs données en clair sur le réseau. Le choix retenu est l'utilisation d'un tunnel WireGuard entre les machines.
 
 ### Rôle de WireGuard
 
@@ -120,7 +120,7 @@ WireGuard sert à :
 - isoler les flux inter-serveurs ;
 - éviter l'exposition directe des échanges MariaDB ;
 - simplifier la topologie réseau entre les nœuds ;
-- garder une interconnexion chiffrée entre les différentes machines [file:1].
+- garder une interconnexion chiffrée entre les différentes machines.
 
 ### Services concernés
 
@@ -140,7 +140,7 @@ ping 10.0.0.2
 ping 10.0.0.10
 ```
 
-L'idée est de vérifier que l'interface `wg0` est bien active et que les pairs se joignent correctement [file:1].
+L'idée est de vérifier que l'interface `wg0` est bien active et que les pairs se joignent correctement.
 
 ---
 
@@ -153,7 +153,7 @@ MariaDB est l'un des composants les plus sensibles de l'architecture. Même si l
 - ouvrir le port 3306 uniquement entre les serveurs qui en ont besoin ;
 - limiter les connexions au réseau VPN WireGuard ;
 - éviter toute exposition publique inutile ;
-- contrôler précisément les comptes autorisés à se connecter à distance [file:1].
+- contrôler précisément les comptes autorisés à se connecter à distance.
 
 ### Vérification réseau
 
@@ -165,7 +165,7 @@ mysql -h 10.0.0.2 -P 3306 -u repli -p -e "SELECT 1;"
 
 ### Retour d'expérience important
 
-Le README documente un incident où la réplication était cassée non pas à cause de MariaDB elle-même, mais à cause d'une règle `ufw` absente sur le port 3306 depuis l'IP VPN du pair dans un sens [file:1].
+Le README documente un incident où la réplication était cassée non pas à cause de MariaDB elle-même, mais à cause d'une règle `ufw` absente sur le port 3306 depuis l'IP VPN du pair dans un sens.
 
 Cela montre deux choses :
 
@@ -180,11 +180,11 @@ La bonne approche consiste donc à ouvrir strictement ce qui est nécessaire, da
 
 Les comptes techniques utilisés par la supervision et la reprise ne doivent pas avoir plus de droits que nécessaire.
 
-Le README initial insiste sur cette idée en distinguant les comptes locaux capables d'agir sur la réplication, et les comptes distants limités à la lecture de statut [file:1].
+Le README initial insiste sur cette idée en distinguant les comptes locaux capables d'agir sur la réplication, et les comptes distants limités à la lecture de statut.
 
 ### Exemple : compte de supervision
 
-Le compte `monitor` est créé plusieurs fois selon l'hôte, avec des privilèges différents [file:1].
+Le compte `monitor` est créé plusieurs fois selon l'hôte, avec des privilèges différents.
 
 Exemple :
 
@@ -207,11 +207,11 @@ Elle permet de garantir que :
 
 - les actions sensibles comme `STOP SLAVE`, `START SLAVE` ou `CHANGE MASTER TO` restent limitées au local ;
 - le pair distant ne peut que lire le statut ;
-- une compromission du compte distant n'offre pas les mêmes capacités qu'un accès local [file:1].
+- une compromission du compte distant n'offre pas les mêmes capacités qu'un accès local.
 
 ### Point d'attention `localhost` / `127.0.0.1`
 
-Le README signale également qu'il faut traiter séparément `localhost` et `127.0.0.1`, car selon le mode de connexion du client `mysql`, MariaDB peut appliquer l'une ou l'autre entrée [file:1].
+Le README signale également qu'il faut traiter séparément `localhost` et `127.0.0.1`, car selon le mode de connexion du client `mysql`, MariaDB peut appliquer l'une ou l'autre entrée.
 
 ---
 
@@ -232,11 +232,11 @@ L'infrastructure s'appuie sur plusieurs secrets sensibles :
 
 Les scripts du dépôt s'appuient sur un fichier `.env` partagé, notamment :
 
-- `updatevaultwarden.sh`
-- `checkreplication.sh`
-- `reconcilesplitbrain.sh`
+- `update_vaultwarden.sh`
+- `check_replication.sh`
+- `reconcile_split_brain.sh`
 
-Le README précise explicitement que ce fichier contient des identifiants et ne doit jamais être commité [file:1].
+Le README précise explicitement que ce fichier contient des identifiants et ne doit jamais être commité.
 
 ### Règles minimales
 
@@ -279,9 +279,9 @@ Ils peuvent contenir ou consommer :
 ### Permissions typiques
 
 ```bash
-chmod 700 updatevaultwarden.sh
-chmod 700 checkreplication.sh
-chmod 700 reconcilesplitbrain.sh
+chmod 700 update_vaultwarden.sh
+chmod 700 check_replication.sh
+chmod 700 reconcile_split_brain.sh
 ```
 
 À adapter selon l'organisation réelle du serveur et l'utilisateur d'exploitation.
@@ -295,7 +295,7 @@ SSH est la porte d'entrée d'administration principale. Il doit donc être trait
 Le README initial mentionne explicitement :
 
 - l'upgrade d'OpenSSH ;
-- le changement du port par défaut de SSH [file:1].
+- le changement du port par défaut de SSH.
 
 ### Mettre à jour OpenSSH
 
@@ -361,7 +361,7 @@ Il faut considérer cette mesure comme un durcissement complémentaire, pas comm
 
 Le pare-feu doit protéger les services, mais il doit aussi rester cohérent avec l'architecture réelle.
 
-Le retour d'expérience initial montre qu'une absence de règle sur le port 3306 pour une IP VPN donnée peut casser la réplication silencieusement [file:1].
+Le retour d'expérience initial montre qu'une absence de règle sur le port 3306 pour une IP VPN donnée peut casser la réplication silencieusement.
 
 ### Méthode
 
@@ -441,7 +441,7 @@ Il faut aussi vérifier :
 
 ## Réplication : sécurité et prudence opérationnelle
 
-Le README initial insiste sur un point important : automatiser la supervision est utile, mais il ne faut pas automatiser aveuglément la correction de conflits de données [file:1].
+Le README initial insiste sur un point important : automatiser la supervision est utile, mais il ne faut pas automatiser aveuglément la correction de conflits de données.
 
 ### Pourquoi
 
@@ -458,13 +458,13 @@ Dans une base de mots de passe, une correction automatique mal conçue peut :
 - alerter immédiatement en cas de conflit ;
 - conserver les corrections complexes pour une intervention manuelle.
 
-Cette logique est exactement celle décrite pour `checkreplication.sh` dans le README initial [file:1].
+Cette logique est exactement celle décrite pour `check_replication.sh` dans le README initial.
 
 ---
 
 ## Disponibilité et sécurité
 
-Le README montre bien qu'une architecture plus disponible peut aussi améliorer la sécurité opérationnelle globale, à condition d'être correctement maîtrisée [file:1].
+Le README montre bien qu'une architecture plus disponible peut aussi améliorer la sécurité opérationnelle globale, à condition d'être correctement maîtrisée.
 
 Deux serveurs situés dans des lieux différents permettent de réduire certains risques :
 
@@ -546,4 +546,4 @@ Ces contrôles simples permettent de détecter rapidement une dérive de sécuri
 | SSH | Accès d'administration ciblé | mise à jour OpenSSH, port dédié, pare-feu |
 | Réplication | Divergence silencieuse ou correction dangereuse | supervision, alertes, interventions prudentes |
 
-La sécurité de cette infrastructure repose moins sur un produit miracle que sur un ensemble de choix cohérents : peu d'exposition, des flux chiffrés, des privilèges limités, des secrets protégés et une exploitation disciplinée [file:1].
+La sécurité de cette infrastructure repose moins sur un produit miracle que sur un ensemble de choix cohérents : peu d'exposition, des flux chiffrés, des privilèges limités, des secrets protégés et une exploitation disciplinée.

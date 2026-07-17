@@ -419,7 +419,7 @@ bitwarden.domaine.fr {
             tls_insecure_skip_verify
         }
 
-        health_path /
+        health_path /alive
         health_interval 5s
         health_timeout 2s
 
