@@ -2,25 +2,24 @@
 
 ## Vue d'ensemble
 
-L'infrastructure Vaultwarden repose sur une architecture distribuée permettant d'améliorer la disponibilité du service tout en conservant un contrôle complet sur les données.
+L'infrastructure Vaultwarden repose sur une architecture distribuée conçue pour améliorer la disponibilité du service tout en conservant une maîtrise complète des données.
 
-L'objectif est d'éviter qu'une panne unique (serveur indisponible, coupure Internet, problème matériel...) rende le gestionnaire de mots de passe inaccessible.
+L'objectif est de limiter les points uniques de défaillance. Une panne matérielle, une coupure réseau ou l'indisponibilité d'un serveur ne doivent pas rendre le gestionnaire de mots de passe totalement inaccessible.
 
-L'architecture finale repose sur :
+L'architecture retenue s'appuie sur les éléments suivants :
 
 - deux instances Vaultwarden indépendantes ;
-- deux bases MariaDB synchronisées ;
+- deux bases de données MariaDB synchronisées ;
 - un tunnel VPN WireGuard entre les différents composants ;
 - un VPS public servant de point d'entrée ;
-- un reverse proxy Caddy assurant l'accès utilisateur.
+- un reverse proxy Caddy assurant l'exposition du service en HTTPS.
 
 ---
 
-# Schéma global
+## Schéma global
 
 ```text
                              Internet
-
                                 |
                                 |
                          Domaine public
@@ -38,41 +37,41 @@ L'architecture finale repose sur :
        Serveur Vaultwarden A              Serveur Vaultwarden B
               |                                   |
               |                                   |
-       Vaultwarden A                      Vaultwarden B
+         Vaultwarden A                      Vaultwarden B
               |                                   |
               |                                   |
           MariaDB A  <=================>  MariaDB B
 
                   Réplication MariaDB
-                    master-master
+                     master-master
 ```
+
+Cette architecture repose sur un point d'entrée public unique, tandis que les composants applicatifs et les bases de données restent sur un réseau privé.
+
+Les serveurs Vaultwarden ne sont donc pas directement exposés à Internet. Le trafic utilisateur transite par le VPS, puis rejoint les nœuds applicatifs via WireGuard.
 
 ---
 
-# Composants
+## Composants
 
-## Vaultwarden
+### Vaultwarden
 
-Vaultwarden est une implémentation alternative du serveur Bitwarden.
+Vaultwarden est une implémentation alternative du serveur Bitwarden, compatible avec les clients officiels Bitwarden.
 
-Il permet d'utiliser les applications officielles Bitwarden tout en hébergeant soi-même le serveur.
-
-Dans cette architecture, deux instances Vaultwarden sont utilisées :
+Dans cette architecture, deux instances distinctes sont déployées :
 
 - une instance principale ;
 - une instance secondaire.
 
-Les deux instances sont configurées de manière identique afin de pouvoir prendre le relais en cas d'indisponibilité.
+Les deux nœuds sont configurés de manière similaire afin de permettre une continuité de service en cas d'indisponibilité de l'un d'eux.
 
----
+Vaultwarden ne stocke pas directement ses données métier dans des fichiers applicatifs locaux. Les informations persistantes sont externalisées dans MariaDB.
 
-## MariaDB
+### MariaDB
 
-Chaque serveur Vaultwarden possède sa propre base de données MariaDB.
+Chaque serveur Vaultwarden dispose de sa propre instance MariaDB locale.
 
-Contrairement à une architecture avec une base de données centralisée, chaque nœud fonctionne avec une copie locale complète des données.
-
-Architecture :
+Ce choix évite de dépendre d'une base centralisée unique et permet à chaque nœud de fonctionner avec une copie complète des données applicatives.
 
 ```text
 Vaultwarden A
@@ -94,172 +93,164 @@ Vaultwarden A
 Vaultwarden B
 ```
 
-La réplication MariaDB permet de synchroniser automatiquement les modifications effectuées sur l'une des bases vers l'autre.
+La réplication MariaDB synchronise automatiquement les modifications d'une base vers l'autre.
 
-Cette approche permet :
+Cette architecture permet :
 
-- d'avoir deux copies complètes des données ;
-- de continuer à fonctionner temporairement en cas d'indisponibilité d'un serveur ;
-- d'éviter un point unique de panne au niveau de la base de données.
+- de disposer de deux copies complètes des données ;
+- de réduire le risque de point unique de panne au niveau de la base ;
+- de maintenir temporairement le service en cas d'indisponibilité d'un des nœuds.
 
-Cependant, une réplication master-master nécessite une surveillance attentive afin d'éviter les divergences de données en cas de rupture prolongée de communication.
+En contrepartie, une réplication master-master impose une surveillance régulière. En cas de rupture prolongée entre les deux serveurs, un risque de divergence de données peut apparaître.
 
 ---
 
-# Réseau
+## Réseau privé
 
-## WireGuard
+### WireGuard
 
-Les communications internes entre les différents composants utilisent un tunnel VPN WireGuard.
+Les échanges internes entre les différents composants s'appuient sur un tunnel VPN WireGuard.
 
-Le VPN permet :
+Ce réseau privé remplit plusieurs fonctions :
 
-- de chiffrer les échanges entre les serveurs ;
-- de ne pas exposer directement les serveurs Vaultwarden sur Internet ;
-- d'utiliser des adresses IP privées dédiées à l'infrastructure.
+- chiffrer les communications inter-serveurs ;
+- isoler les flux internes du réseau public ;
+- fournir un plan d'adressage privé dédié à l'infrastructure.
 
 Exemple de plan d'adressage :
 
 ```text
-Serveur Vaultwarden A :
-10.0.0.1
-
-Serveur Vaultwarden B :
-10.0.0.2
-
-VPS :
-10.0.0.10
+Serveur Vaultwarden A : 10.0.0.1
+Serveur Vaultwarden B : 10.0.0.2
+VPS : 10.0.0.10
 ```
 
-Les échanges entre :
+Les communications suivantes transitent exclusivement par ce réseau privé :
 
-- Caddy et Vaultwarden ;
-- MariaDB A et MariaDB B ;
-- les différents scripts de supervision ;
+- les échanges entre Caddy et les instances Vaultwarden ;
+- la réplication entre MariaDB A et MariaDB B ;
+- les scripts d'administration, de supervision et de contrôle.
 
-passent par ce réseau privé.
+Cette approche limite l'exposition réseau des nœuds internes et simplifie la maîtrise des flux autorisés.
 
 ---
 
-# VPS et reverse proxy
+## Point d'entrée public
 
-Le VPS constitue le seul point accessible depuis Internet.
+### VPS et reverse proxy
 
-Son rôle est :
+Le VPS constitue l'unique composant accessible depuis Internet.
 
-- recevoir les connexions HTTPS des utilisateurs ;
-- gérer les certificats TLS ;
-- transmettre les requêtes vers les serveurs Vaultwarden disponibles.
+Son rôle est de centraliser l'entrée du trafic utilisateur, de terminer les connexions HTTPS et de transmettre les requêtes vers les serveurs Vaultwarden disponibles.
 
 Le reverse proxy utilisé est **Caddy**.
 
-Avantages :
+Ses avantages dans cette architecture sont les suivants :
 
-- configuration simple ;
-- gestion automatique des certificats Let's Encrypt ;
-- possibilité de basculer automatiquement vers un autre serveur Vaultwarden.
-
-Architecture :
+- configuration simple et lisible ;
+- gestion automatique des certificats TLS ;
+- possibilité d'orienter le trafic vers le nœud applicatif disponible ;
+- séparation claire entre exposition publique et services internes.
 
 ```text
 Utilisateur
-
     |
     |
- HTTPS
-
+  HTTPS
     |
-
+    |
 Caddy (VPS)
-
     |
     |
- HTTPS via WireGuard
-
+HTTPS via WireGuard
     |
     +------------+
     |            |
 Vaultwarden A  Vaultwarden B
 ```
 
+Le VPS ne porte pas la donnée métier. Il agit uniquement comme passerelle d'accès et point de contrôle réseau.
+
 ---
 
-# Stockage des données
+## Stockage des données
 
-Les données sensibles sont stockées uniquement sur les serveurs privés.
+Les données sensibles sont stockées exclusivement sur les serveurs privés hébergeant Vaultwarden et MariaDB.
 
 La base MariaDB contient notamment :
 
-- les utilisateurs ;
+- les comptes utilisateurs ;
 - les coffres ;
 - les éléments enregistrés ;
-- les paramètres utilisateurs.
+- les paramètres associés aux utilisateurs.
 
-Les données restent chiffrées conformément au fonctionnement de Vaultwarden/Bitwarden.
+Le VPS public n'a pas vocation à stocker des données applicatives utilisateur. Son rôle se limite au reverse proxy, à la terminaison TLS et à l'acheminement du trafic.
 
-Le VPS ne stocke aucune donnée utilisateur. Son rôle est uniquement de servir de passerelle réseau.
-
----
-
-# Haute disponibilité
-
-La disponibilité repose sur plusieurs mécanismes complémentaires :
-
-## Redondance applicative
-
-Deux instances Vaultwarden sont disponibles.
-
-Si un serveur devient indisponible, le second peut continuer à fournir le service.
-
-## Redondance des données
-
-Chaque serveur possède sa propre base MariaDB.
-
-La réplication master-master maintient les deux copies synchronisées.
-
-## Séparation physique
-
-Les deux serveurs Vaultwarden sont hébergés sur des emplacements différents.
-
-Cela permet de limiter l'impact d'un incident physique :
-
-- panne électrique ;
-- panne matérielle ;
-- problème réseau local ;
-- sinistre.
+Conformément au fonctionnement de Vaultwarden et des clients Bitwarden, les données sensibles restent chiffrées côté applicatif selon le modèle prévu par la solution.
 
 ---
 
-# Limites de l'architecture
+## Disponibilité
 
-Cette architecture améliore fortement la disponibilité, mais elle n'élimine pas tous les risques.
+La disponibilité du service repose sur plusieurs mécanismes complémentaires.
 
-Points d'attention :
+### Redondance applicative
 
-- une mauvaise gestion de la réplication MariaDB peut provoquer une divergence des données ;
-- une erreur de configuration peut être répliquée sur les deux bases ;
-- les sauvegardes restent indispensables ;
-- les mises à jour doivent être réalisées avec précaution.
+Deux instances Vaultwarden sont déployées sur des nœuds distincts.
 
-La réplication n'est donc pas considérée comme un remplacement complet des sauvegardes.
+Si l'une devient indisponible, l'autre peut continuer à assurer le service, sous réserve que les dépendances associées restent opérationnelles.
+
+### Redondance des données
+
+Chaque nœud dispose de sa propre base MariaDB.
+
+La réplication master-master maintient les deux copies synchronisées et évite de concentrer l'ensemble des données sur une seule base centrale.
+
+### Séparation physique
+
+Les serveurs Vaultwarden sont hébergés sur des emplacements distincts.
+
+Cette séparation réduit l'impact d'un incident localisé, par exemple :
+
+- une panne électrique ;
+- une panne matérielle ;
+- une perte de connectivité locale ;
+- un incident physique sur un site donné.
 
 ---
 
-# Évolution possible
+## Limites et points d'attention
 
-Plusieurs améliorations pourraient être envisagées :
+Cette architecture améliore nettement la résilience du service, mais elle ne supprime pas l'ensemble des risques d'exploitation.
 
-- ajout d'une sauvegarde externalisée régulière ;
-- automatisation complète des tests de restauration ;
-- supervision centralisée ;
-- ajout d'un troisième nœud de lecture ;
-- amélioration du monitoring réseau et applicatif.
+Les principaux points de vigilance sont les suivants :
+
+- une divergence MariaDB peut apparaître en cas de désynchronisation prolongée ;
+- une erreur d'administration peut être répliquée sur les deux nœuds ;
+- la réplication ne remplace pas une stratégie de sauvegarde ;
+- les opérations de mise à jour doivent être réalisées avec méthode.
+
+La haute disponibilité ne dispense donc ni de la supervision, ni des sauvegardes, ni des procédures de restauration testées.
 
 ---
 
-# Résumé
+## Évolutions possibles
 
-L'architecture finale repose donc sur :
+Plusieurs axes d'amélioration peuvent être envisagés à moyen terme :
+
+- mise en place d'une sauvegarde externalisée régulière ;
+- automatisation des tests de restauration ;
+- centralisation de la supervision ;
+- amélioration du monitoring réseau et applicatif ;
+- ajout d'un nœud supplémentaire selon les besoins d'évolution.
+
+Ces évolutions ne sont pas indispensables au fonctionnement actuel, mais elles peuvent renforcer la robustesse globale de l'infrastructure.
+
+---
+
+## Synthèse
+
+L'architecture repose sur les composants suivants :
 
 | Élément | Rôle |
 | --- | --- |
@@ -270,4 +261,4 @@ L'architecture finale repose donc sur :
 | VPS | Point d'entrée public |
 | Caddy | Reverse proxy HTTPS et gestion TLS |
 
-Cette architecture permet d'obtenir un gestionnaire de mots de passe auto-hébergé, résilient et accessible depuis l'extérieur tout en conservant la maîtrise complète de l'infrastructure.
+Cette organisation permet de disposer d'un gestionnaire de mots de passe auto-hébergé, accessible depuis l'extérieur, tout en conservant une séparation nette entre exposition publique, traitement applicatif et stockage des données.
