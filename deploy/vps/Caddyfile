@@ -1,0 +1,43 @@
+{
+    email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+    encode zstd gzip
+
+    reverse_proxy {$NODE_A_UPSTREAM} {$NODE_B_UPSTREAM} {
+        # Primary/secondary routing. The first healthy upstream wins.
+        lb_policy first
+        lb_try_duration 5s
+        lb_try_interval 250ms
+
+        # Active health checks.
+        health_uri /alive
+        health_interval 15s
+        health_timeout 3s
+        health_fails 3
+        health_passes 2
+
+        # Passive health checks.
+        fail_duration 30s
+        max_fails 2
+        unhealthy_status 5xx
+        unhealthy_latency 10s
+    }
+
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10MiB
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
+}

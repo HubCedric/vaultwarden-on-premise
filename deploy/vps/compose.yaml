@@ -1,0 +1,23 @@
+name: ${COMPOSE_PROJECT_NAME:-vaultwarden-proxy}
+
+services:
+  caddy:
+    image: caddy:${CADDY_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME:-vaultwarden-proxy}-caddy
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      NODE_A_UPSTREAM: ${NODE_A_UPSTREAM}
+      NODE_B_UPSTREAM: ${NODE_B_UPSTREAM}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data:/data
+      - ./config:/config
+      - ./logs:/var/log/caddy
+    security_opt:
+      - no-new-privileges:true

@@ -1,0 +1,45 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+scripts/.env
+deploy/**/.env
+deploy/node/config/mariadb/50-server.cnf
+
+# Runtime data
+data/
+backups/
+logs/
+*.log
+*.pid
+*.lock
+
+# Database dumps and sensitive exports
+*.sql
+*.sql.gz
+*.dump
+*.bak
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Generated reconciliation reports
+reconcile-report/
+apply_to_master.sql
+apply_to_slave.sql
+report.txt
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Tool caches
+.claude/
+__pycache__/
+*.pyc

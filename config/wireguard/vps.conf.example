@@ -1,0 +1,18 @@
+[Interface]
+Address = 10.0.0.10/32
+ListenPort = 51820
+PrivateKey = CHANGE_ME_VPS_PRIVATE_KEY
+
+[Peer]
+# Node A
+PublicKey = CHANGE_ME_NODE_A_PUBLIC_KEY
+AllowedIPs = 10.0.0.1/32
+Endpoint = [CHANGE_ME_NODE_A_IPV6]:51820
+PersistentKeepalive = 25
+
+[Peer]
+# Node B
+PublicKey = CHANGE_ME_NODE_B_PUBLIC_KEY
+AllowedIPs = 10.0.0.2/32
+Endpoint = [CHANGE_ME_NODE_B_IPV6]:51820
+PersistentKeepalive = 25
