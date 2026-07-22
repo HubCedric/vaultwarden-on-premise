@@ -66,23 +66,64 @@ curl --fail http://10.0.0.1:8080/alive
 
 Pour un second nœud, utilisez l'exemple MariaDB `node-b`, changez les adresses, les secrets et le nom du projet Compose.
 
-## Parcours documentaire
+## Documentation
 
-| Besoin | Document |
+Le dossier [`docs/`](docs/) regroupe la documentation détaillée du projet. Les documents sont classés ci-dessous par usage afin de faciliter la navigation.
+
+### Point d'entrée
+
+| Document | Contenu |
 | --- | --- |
-| Comprendre le système | [Architecture](docs/architecture.md) |
-| Installer de zéro | [Installation](docs/installation.md) |
-| Renseigner les variables | [Configuration](docs/configuration.md) |
-| Exploiter au quotidien | [Runbook d'exploitation](docs/operations.md) |
-| Sauvegarder et restaurer | [Sauvegarde et restauration](docs/backup-restore.md) |
-| Mettre en place la redondance | [Haute disponibilité](docs/high-availability.md) |
-| Réagir à un incident grave | [Plan de reprise](docs/disaster-recovery.md) |
-| Sécuriser l'infrastructure | [Sécurité](docs/security.md) |
-| Diagnostiquer une panne | [Dépannage](docs/troubleshooting.md) |
-| Voir l'analyse du dépôt d'origine | [Audit et décisions](docs/audit.md) |
-| Préparer la publication GitHub | [Checklist de publication](docs/publication-checklist.md) |
+| [Index de la documentation](docs/index.md) | Vue d'ensemble et point d'entrée principal de la documentation. |
+| [Audit du dépôt d'origine](docs/audit.md) | Analyse de l'ancien dépôt, constats et décisions de restructuration. |
+| [Checklist de publication](docs/publication-checklist.md) | Vérifications à effectuer avant ou après une publication sur GitHub. |
 
-L'index complet se trouve dans [`docs/index.md`](docs/index.md).
+### Architecture et conception
+
+| Document | Contenu |
+| --- | --- |
+| [Architecture applicative](docs/architecture.md) | Composants, flux réseau, rôles des serveurs et fonctionnement général. |
+| [Décision d'architecture : routage actif/passif](docs/adr/0001-active-passive-routing.md) | Raisons du choix d'un routage actif/passif plutôt qu'actif/actif. |
+| [Haute disponibilité](docs/high-availability.md) | Architecture de redondance, réplication et principes de basculement. |
+| [Haute disponibilité — documentation historique](docs/haute-disponibilite.md) | Ancienne documentation en français conservée pour référence. |
+
+### Installation et configuration
+
+| Document | Contenu |
+| --- | --- |
+| [Installation](docs/installation.md) | Mise en place complète de l'infrastructure depuis un environnement vierge. |
+| [Configuration](docs/configuration.md) | Variables, fichiers d'environnement et paramètres des différents composants. |
+| [Migration SQLite vers MariaDB](docs/migration-sqlite-mariadb.md) | Procédure et précautions pour migrer la base de données Vaultwarden. |
+
+### Exploitation et maintenance
+
+| Document | Contenu |
+| --- | --- |
+| [Runbook d'exploitation](docs/operations.md) | Opérations courantes, contrôles, commandes utiles et procédures quotidiennes. |
+| [Maintenance](docs/maintenance.md) | Procédures historiques de maintenance et de mise à jour. |
+| [Sauvegarde et restauration](docs/backup-restore.md) | Stratégie de sauvegarde, vérifications et procédure de restauration. |
+| [Restauration — documentation historique](docs/restauration.md) | Ancienne procédure de restauration conservée pour référence. |
+
+### Incidents et reprise
+
+| Document | Contenu |
+| --- | --- |
+| [Plan de reprise après sinistre](docs/disaster-recovery.md) | Procédures de reprise après perte d'un nœud, divergence ou incident majeur. |
+| [Dépannage](docs/troubleshooting.md) | Diagnostic des pannes fréquentes et pistes de résolution. |
+| [Debug — retours d'expérience](docs/debug.md) | Incidents techniques rencontrés et corrections appliquées. |
+
+### Sécurité
+
+| Document | Contenu |
+| --- | --- |
+| [Sécurité](docs/security.md) | Durcissement, gestion des secrets, exposition réseau et bonnes pratiques. |
+| [Sécurité — documentation historique](docs/securite.md) | Ancienne documentation de sécurité conservée pour référence. |
+
+### Historique
+
+| Document | Contenu |
+| --- | --- |
+| [README historique](docs/history/legacy-readme.md) | Version archivée de l'ancien README monolithique. |
 
 ## Scripts principaux
 
