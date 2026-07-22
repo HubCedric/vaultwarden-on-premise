@@ -27,7 +27,7 @@ Infrastructure reproductible et documentation d'exploitation pour héberger Vaul
 flowchart TB
     U[Clients Bitwarden] -->|HTTPS| C[Caddy sur VPS]
     C -->|WireGuard / HTTP privé| A[Vaultwarden A - actif]
-    C -. basculement .->|WireGuard / HTTP privé| B[Vaultwarden B - secours]
+    C -.->|Basculement via WireGuard / HTTP privé| B[Vaultwarden B - secours]
     A --> DBA[(MariaDB A)]
     B --> DBB[(MariaDB B)]
     DBA <-->|Réplication GTID asynchrone| DBB
