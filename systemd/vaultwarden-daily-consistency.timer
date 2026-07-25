@@ -1,0 +1,11 @@
+[Unit]
+Description=Contrôle quotidien des compteurs Vaultwarden
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 Europe/Paris
+RandomizedDelaySec=10min
+Persistent=true
+Unit=vaultwarden-daily-consistency.service
+
+[Install]
+WantedBy=timers.target

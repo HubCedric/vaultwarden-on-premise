@@ -1,0 +1,10 @@
+[Unit]
+Description=Contrôle quotidien léger de cohérence Vaultwarden
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/vaultwarden-monitor/vaultwarden-daily-consistency.sh
+User=root
+Group=root
+Nice=15

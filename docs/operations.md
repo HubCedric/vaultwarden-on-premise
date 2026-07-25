@@ -5,7 +5,7 @@
 ```bash
 cd /opt/vaultwarden-on-premise/scripts
 ./healthcheck.sh
-./check_replication.sh
+sudo /usr/local/lib/vaultwarden-monitor/vaultwarden-replication-monitor.sh --check
 ```
 
 Résultat attendu :
@@ -156,7 +156,7 @@ docker compose -f deploy/vps/compose.yaml --env-file deploy/vps/.env logs --sinc
 
 # Timers
 journalctl -u vaultwarden-backup.service
-journalctl -u vaultwarden-replication-check.service
+journalctl -u vaultwarden-replication-monitor.service
 ```
 
 ## 10. Fréquences recommandées
@@ -164,9 +164,20 @@ journalctl -u vaultwarden-replication-check.service
 | Contrôle | Fréquence |
 | --- | --- |
 | Healthcheck applicatif | toutes les 5 à 15 minutes |
-| Réplication | toutes les heures au minimum |
+| Réplication | toutes les 5 minutes |
 | Sauvegarde complète | quotidienne |
 | Copie hors site | quotidienne |
 | Test de restauration | trimestriel |
 | Revue des mises à jour | mensuelle |
 | Revue du pare-feu et des accès | trimestrielle |
+
+
+## 11. Supervision automatisée
+
+Le paquet de supervision détaillé dans [monitoring.md](monitoring.md) contrôle les deux sens de réplication toutes les cinq minutes, surveille l’état Docker et peut arrêter uniquement le nœud de secours.
+
+```bash
+systemctl list-timers --all | grep vaultwarden
+```
+
+En cas d’alerte, suivre le [runbook incident de réplication](runbooks/replication-incident.md).

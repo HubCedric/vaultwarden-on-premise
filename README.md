@@ -17,7 +17,7 @@ Infrastructure reproductible et documentation d'exploitation pour héberger Vaul
 - un déploiement Docker Compose pour chaque nœud Vaultwarden ;
 - un reverse proxy Caddy sur VPS ;
 - des exemples WireGuard et MariaDB ;
-- des scripts de sauvegarde, mise à jour et contrôle de réplication ;
+- des scripts de sauvegarde, mise à jour et supervision de réplication ;
 - une documentation d'installation, d'architecture, d'exploitation et de reprise après incident ;
 - des contrôles GitHub Actions pour les scripts, le YAML et les liens internes.
 
@@ -130,7 +130,7 @@ Le dossier [`docs/`](docs/) regroupe la documentation détaillée du projet. Les
 ```text
 scripts/
 ├── backup_vaultwarden.sh       Sauvegarde cohérente DB + données persistantes
-├── check_replication.sh        Contrôle et redémarrage prudent de la réplication
+├── check_replication.sh        Ancien contrôle de réplication, conservé pour compatibilité
 ├── healthcheck.sh              Contrôle applicatif, base et réplication
 ├── preflight.sh                Vérification des placeholders et prérequis
 ├── update_vaultwarden.sh       Mise à jour versionnée avec backup et rollback

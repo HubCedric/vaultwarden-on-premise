@@ -25,7 +25,7 @@ jobs:
         run: ./scripts/validate_repo.sh
 
       - name: ShellCheck
-        run: shellcheck scripts/*.sh scripts/lib/*.sh
+        run: shellcheck scripts/*.sh scripts/lib/*.sh scripts/monitoring/*.sh
 
       - name: Validate Compose files
         run: |

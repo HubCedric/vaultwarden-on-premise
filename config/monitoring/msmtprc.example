@@ -1,0 +1,18 @@
+# Copier vers /etc/msmtprc puis chmod 600.
+defaults
+auth           on
+tls            on
+tls_starttls   on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+timeout        15
+logfile        /var/log/msmtp.log
+
+account        vaultwarden-monitor
+host           mail.infomaniak.com
+port           587
+from           no-reply@example.net
+user           no-reply@example.net
+password       A_CONFIGURER
+auth           login
+
+account default : vaultwarden-monitor

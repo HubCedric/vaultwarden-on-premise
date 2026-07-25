@@ -1,0 +1,12 @@
+[Unit]
+Description=Surveillance réplication MariaDB et Vaultwarden
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+SuccessExitStatus=2
+ExecStart=/usr/local/lib/vaultwarden-monitor/vaultwarden-replication-monitor.sh --check
+User=root
+Group=root
+Nice=10

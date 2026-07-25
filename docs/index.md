@@ -25,3 +25,9 @@
 ## Historique
 
 - [Ancien README monolithique](history/legacy-readme.md)
+
+## Supervision et runbooks
+
+- [Supervision Vaultwarden et MariaDB](monitoring.md)
+- [Exploitation du monitoring](runbooks/monitoring-operations.md)
+- [Incident de réplication](runbooks/replication-incident.md)

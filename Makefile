@@ -4,7 +4,7 @@ validate:
 	./scripts/validate_repo.sh
 
 shellcheck:
-	shellcheck scripts/*.sh scripts/lib/*.sh scripts/experimental/*.sh
+	shellcheck scripts/*.sh scripts/lib/*.sh scripts/monitoring/*.sh scripts/experimental/*.sh
 
 compose-config:
 	cp deploy/node/.env.example /tmp/vaultwarden-node.env
