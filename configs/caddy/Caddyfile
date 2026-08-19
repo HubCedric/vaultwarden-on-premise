@@ -1,0 +1,31 @@
+# Bloc Vaultwarden publié à partir de la configuration réellement utilisée sur equilihost.
+# Le domaine réel et les autres vhosts ont été retirés.
+
+vaultwarden.example.com {
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "SAMEORIGIN"
+		X-Xss-Protection "1; mode=block"
+		X-Robots-Tag "noindex, noarchive, nofollow"
+		-X-Powered-By
+	}
+
+	reverse_proxy https://10.0.0.1:443 https://10.0.0.2:443 {
+		lb_policy first
+		lb_try_duration 5s
+		lb_try_interval 250ms
+
+		transport http {
+			# Les backends utilisent actuellement des certificats auto-signés.
+			tls_insecure_skip_verify
+		}
+
+		health_path /
+		health_interval 5s
+		health_timeout 2s
+
+		header_up X-Real-IP {remote_host}
+	}
+}
+

@@ -1,0 +1,13 @@
+[Unit]
+Description=Contrôle Vaultwarden toutes les 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Persistent=true
+Unit=vaultwarden-replication-monitor.service
+
+[Install]
+WantedBy=timers.target
+

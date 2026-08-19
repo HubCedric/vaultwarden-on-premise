@@ -1,0 +1,12 @@
+# Source : unité observée. Le nom historique "weekly" est conservé.
+[Unit]
+Description=Réconciliation hebdomadaire Vaultwarden sans application
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/vaultwarden-monitor/vaultwarden-weekly-reconcile.sh
+User=root
+Group=root
+Nice=19
+

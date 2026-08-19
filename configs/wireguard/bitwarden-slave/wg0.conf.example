@@ -1,0 +1,20 @@
+# Topologie publiable reconstruite à partir de l'infrastructure réelle.
+# Les clés et endpoints IPv6 publics restent privés.
+[Interface]
+Address = 10.0.0.2/32
+ListenPort = 51820
+PrivateKey = <CLE_PRIVEE_WIREGUARD_SLAVE>
+
+# bitwarden-master
+[Peer]
+PublicKey = <CLE_PUBLIQUE_WIREGUARD_MASTER>
+Endpoint = [<IPV6_PUBLIQUE_MASTER>]:51820
+AllowedIPs = 10.0.0.1/32
+PersistentKeepalive = 25
+
+# equilihost
+[Peer]
+PublicKey = <CLE_PUBLIQUE_WIREGUARD_EQUILIHOST>
+Endpoint = [<IPV6_PUBLIQUE_EQUILIHOST>]:51820
+AllowedIPs = 10.0.0.10/32
+PersistentKeepalive = 25

@@ -1,0 +1,20 @@
+# Copie nettoyée de la structure observée sur equilihost.
+[Interface]
+Address = 10.0.0.10/32
+ListenPort = 51820
+PrivateKey = <CLE_PRIVEE_WIREGUARD_EQUILIHOST>
+
+# bitwarden-master
+[Peer]
+PublicKey = <CLE_PUBLIQUE_WIREGUARD_MASTER>
+Endpoint = [<IPV6_PUBLIQUE_MASTER>]:51820
+AllowedIPs = 10.0.0.1/32
+PersistentKeepalive = 25
+
+# bitwarden-slave
+[Peer]
+PublicKey = <CLE_PUBLIQUE_WIREGUARD_SLAVE>
+Endpoint = [<IPV6_PUBLIQUE_SLAVE>]:51820
+AllowedIPs = 10.0.0.2/32
+PersistentKeepalive = 25
+
